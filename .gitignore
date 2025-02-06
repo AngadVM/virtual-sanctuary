@@ -169,3 +169,13 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Database files
+*.sqlite3
+*.db
+
+# Uploads 
+App/Blog/static/uploads
+
+db.py
+
