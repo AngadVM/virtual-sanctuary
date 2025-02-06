@@ -24,3 +24,54 @@ nav ul li a, nav ul li span, header .action { display: block; padding: 0.5rem; }
 .content textarea { min-height: 12em; resize: vertical; }
 input.danger { color: #cc2f2e; }
 input[type=submit] { align-self: start; min-width: 10em; }
+
+/* New styles for image handling */
+.post-image {
+    margin: 1.5em 0;
+    max-width: 100%;
+}
+
+.post-image img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.current-image {
+    margin: 1em 0;
+}
+
+.current-image p {
+    color: slategray;
+    font-style: italic;
+    margin-bottom: 0.5em;
+}
+
+.current-image img {
+    max-width: 300px;
+    height: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 3px;
+}
+
+input[type="file"] {
+    margin-bottom: 1em;
+    padding: 0.5em 0;
+    width: 100%;
+}
+
+/* Hover effects for images */
+.post-image img:hover,
+.current-image img:hover {
+    opacity: 0.9;
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .current-image img {
+        max-width: 100%;
+    }
+}
