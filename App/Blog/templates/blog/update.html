@@ -9,20 +9,31 @@
     <label for="title">Title</label>
     <input name="title" id="title"
       value="{{ request.form['title'] or post['title'] }}" required>
+    
     <label for="body">Body</label>
     <textarea name="body" id="body">{{ request.form['body'] or post['body'] }}</textarea>
-    <label for="image">Image</label>
-    <input type="file" name="image" id="image" accept="image/*">
-    {% if post['image_url'] %}
-      <div class="current-image">
-        <p>Current image:</p>
-        <img src="{{ url_for('static', filename=post['image_url']) }}" 
-             alt="Current post image" 
-             style="max-width: 300px; margin: 10px 0;">
-      </div>
+    
+    <h3>Existing Images</h3>
+    {% if images %}
+      {% for image in images %}
+        <div>
+          <input type="checkbox" name="remove_images" value="{{ image }}" id="remove_{{ loop.index }}">
+          <label for="remove_{{ loop.index }}">
+            <img src="{{ url_for('static', filename=image) }}" alt="Post image" style="max-width: 300px;">
+            Remove this image
+          </label>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No images uploaded</p>
     {% endif %}
+    
+    <label for="images">Upload New Images</label>
+    <input type="file" name="images" id="images" multiple accept="image/*">
+    
     <input type="submit" value="Save">
   </form>
+  
   <hr>
   <form action="{{ url_for('blog.delete', id=post['id']) }}" method="post">
     <input class="danger" type="submit" value="Delete" onclick="return confirm('Are you sure?');">

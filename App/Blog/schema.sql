@@ -18,3 +18,15 @@ CREATE TABLE post (
 );
 
 
+CREATE TABLE post_images (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  image_url TEXT NOT NULL,
+  FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+);
+
+
+
+
+
+

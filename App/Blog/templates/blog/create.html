@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 
 {% block header %}
@@ -8,15 +7,11 @@
 {% block content %}
   <form method="post" enctype="multipart/form-data">
     <label for="title">Title</label>
-    <input type="text" name="title" id="title" value="{{ request.form.get('title', '') }}" required>
-
+    <input name="title" id="title" value="{{ request.form['title'] }}" required>
     <label for="body">Body</label>
-    <textarea name="body" id="body">{{ request.form.get('body', '') }}</textarea>
-
-    <label for="image">Upload Image (optional)</label>
-    <input type="file" name="image" id="image" accept="image/*">
-
-    <button type="submit">Save</button>
+    <textarea name="body" id="body">{{ request.form['body'] }}</textarea>
+    <label for="images">Upload Images (multiple allowed)</label>
+    <input type="file" name="images" id="images" multiple accept="image/*">
+    <input type="submit" value="Save">
   </form>
 {% endblock %}
-

@@ -20,13 +20,23 @@ def allowed_file(filename):
 def index():
     db = get_db()
     posts = db.execute(
-        'SELECT p.id, title, body, image_url, created, author_id, username '  
-        ' FROM post p JOIN user u ON p.author_id = u.id '
-        ' ORDER BY created DESC'  
+        'SELECT p.id, title, body, created, author_id, username '
+        'FROM post p JOIN user u ON p.author_id = u.id '
+        'ORDER BY created DESC'
     ).fetchall()
-    return render_template('blog/index.html', posts=posts)
-
-
+    
+    # Fetch images for each post
+    posts_with_images = []
+    for post in posts:
+        post_dict = dict(post)
+        post_dict['images'] = [
+            img['image_url'] for img in 
+            db.execute('SELECT image_url FROM post_images WHERE post_id = ?', 
+                       (post_dict['id'],)).fetchall()
+        ]
+        posts_with_images.append(post_dict)
+    
+    return render_template('blog/index.html', posts=posts_with_images)
 
 
 @bp.route('/create', methods=('GET', 'POST'))
@@ -36,30 +46,40 @@ def create():
         title = request.form['title']
         body = request.form['body']
         error = None
-        image_url = None  # Initialize image_url
-
-        # Handle image upload
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                upload_folder = os.path.join(current_app.static_folder, 'uploads')
-                os.makedirs(upload_folder, exist_ok=True)  # Ensure directory exists
-                file.save(os.path.join(upload_folder, filename))
-                image_url = f'uploads/{filename}'  # Store the file path
 
         if not title:
-            error = 'Title is required.'
+            error = 'Title is required'
 
-        if error:
+        if error is not None:
             flash(error)
         else:
             db = get_db()
-            db.execute(
-                'INSERT INTO post (title, body, image_url, author_id)'
-                ' VALUES (?, ?, ?, ?)',
-                (title, body, image_url, g.user['id'])
+            # Insert post first
+            cursor = db.execute(
+                'INSERT INTO post (title, body, author_id)'
+                'VALUES (?, ?, ?)',
+                (title, body, g.user['id'])
             )
+            post_id = cursor.lastrowid
+
+            # Handle multiple image uploads
+            images = request.files.getlist('images')
+            for file in images:
+                if file and file.filename:
+                    if allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        os.makedirs(os.path.join(current_app.static_folder, 'uploads'), exist_ok=True)
+                        file_path = os.path.join(current_app.static_folder, 'uploads', filename)
+                        file.save(file_path)
+                        
+                        # Save image path to database
+                        db.execute(
+                            'INSERT INTO post_images (post_id, image_url) VALUES (?, ?)',
+                            (post_id, f'uploads/{filename}')
+                        )
+                    else:
+                        flash('Invalid file type. Allowed types are png, jpg, jpeg, gif')
+
             db.commit()
             return redirect(url_for('blog.index'))
 
@@ -67,53 +87,70 @@ def create():
 
 
 
-def get_post(id, check_author=True):
+@bp.route('/<int:id>/view')
+def get_post(id):
     post = get_db().execute(
-        'SELECT p.id, title, body, image_url, created, author_id, username'
-        ' FROM post p JOIN user u ON p.author_id = u.id'
-        ' WHERE p.id = ?',
+        'SELECT p.id, title, body, created, author_id, username '
+        'FROM post p JOIN user u ON p.author_id = u.id '
+        'WHERE p.id = ?',
         (id,)
     ).fetchone()
 
     if post is None:
         abort(404, f"Post id {id} doesn't exist.")
 
-    if check_author and post['author_id'] != g.user['id']:
-        abort(403)
+    # Convert to dictionary and fetch images
+    post_dict = dict(post)
+    post_dict['images'] = [
+        img['image_url'] for img in 
+        get_db().execute('SELECT image_url FROM post_images WHERE post_id = ?', 
+                         (post_dict['id'],)).fetchall()
+    ]
 
-    return post
+    return render_template('blog/view.html', post=post_dict)
+
 
 
 @bp.route('/<int:id>/update', methods=('GET', 'POST'))
 @login_required
 def update(id):
-    post = get_post(id)
+    # Retrieve the post
+    post = get_db().execute(
+        'SELECT p.id, title, body, created, author_id, username'
+        ' FROM post p JOIN user u ON p.author_id = u.id'
+        ' WHERE p.id = ?',
+        (id,)
+    ).fetchone()
+
+    # Retrieve existing images
+    images = get_db().execute(
+        'SELECT image_url FROM post_images WHERE post_id = ?',
+        (id,)
+    ).fetchall()
+
+    # Check if post exists and if current user is the author
+    if post is None:
+        abort(404, f"Post id {id} doesn't exist.")
+    
+    if post['author_id'] != g.user['id']:
+        abort(403)
+
+    # Convert Row to dictionary
+    post = dict(post)
+    images = [dict(img)['image_url'] for img in images]
+
     if request.method == 'POST':
         title = request.form['title']
         body = request.form['body']
         error = None
 
-        # Handle image update
-        if 'image' not in request.files:
-            image_url = post['image_url']  # Keep existing image
-        else:
-            file = request.files['image']
-            if file.filename == '':
-                image_url = post['image_url']  # Keep existing image
-            elif file and allowed_file(file.filename):
-                # Delete old image if it exists
-                if post['image_url']:
-                    old_image_path = os.path.join(current_app.static_folder, post['image_url'])
-                    if os.path.exists(old_image_path):
-                        os.remove(old_image_path)
-                
-                filename = secure_filename(file.filename)
-                os.makedirs(os.path.join(current_app.static_folder, 'uploads'), exist_ok=True)
-                file.save(os.path.join(current_app.static_folder, 'uploads', filename))
-                image_url = f'uploads/{filename}'
-            else:
-                error = 'Invalid file type. Allowed types are png, jpg, jpeg, gif'
+        # Handle image removal
+        removed_images = request.form.getlist('remove_images')
+        
+        # Handle new image uploads
+        uploaded_images = request.files.getlist('images')
 
+        # Validate title
         if not title:
             error = 'Title is required.'
 
@@ -121,15 +158,45 @@ def update(id):
             flash(error)
         else:
             db = get_db()
+            
+            # Remove selected images
+            for img in removed_images:
+                # Remove from filesystem
+                img_path = os.path.join(current_app.static_folder, img)
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+                
+                # Remove from database
+                db.execute('DELETE FROM post_images WHERE image_url = ?', (img,))
+
+            # Handle new image uploads
+            for file in uploaded_images:
+                if file and file.filename:
+                    if allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        os.makedirs(os.path.join(current_app.static_folder, 'uploads'), exist_ok=True)
+                        file_path = os.path.join(current_app.static_folder, 'uploads', filename)
+                        file.save(file_path)
+                        
+                        # Save image path to database
+                        db.execute(
+                            'INSERT INTO post_images (post_id, image_url) VALUES (?, ?)',
+                            (id, f'uploads/{filename}')
+                        )
+                    else:
+                        flash('Invalid file type. Allowed types are png, jpg, jpeg, gif')
+
+            # Update post details
             db.execute(
-                'UPDATE post SET title = ?, body = ?, image_url = ?'
+                'UPDATE post SET title = ?, body = ?'
                 ' WHERE id = ?',
-                (title, body, image_url, id)
+                (title, body, id)
             )
             db.commit()
             return redirect(url_for('blog.index'))
+    
+    return render_template('blog/update.html', post=post, images=images)
 
-    return render_template('blog/update.html', post=post)
 
 
 
