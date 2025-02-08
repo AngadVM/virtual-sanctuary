@@ -1,9 +1,18 @@
 import functools
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 from Blog.db import get_db
-import re
+import re, os, time
 
+
+UPLOAD_FOLDER = 'static/profile_images'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Blueprint for auth
 bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -160,3 +169,104 @@ def login_required(view):
         return view(**kwargs)
 
     return wrapped_view
+
+
+
+@bp.route('/profile/<int:user_id>')
+@bp.route('/profile', defaults={'user_id': None})
+@login_required
+def profile(user_id=None):
+    db = get_db()
+    
+    if user_id is None:
+        user_id = g.user['id']
+        
+    user = db.execute(
+        'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
+        'FROM user WHERE id = ?',
+        (user_id,)
+    ).fetchone()
+    
+    if user is None:
+        abort(404)
+        
+    is_own_profile = g.user['id'] == user_id
+
+    posts = db.execute(
+        '''SELECT p.id, title, body, created, author_id, username
+           FROM post p JOIN user u ON p.author_id = u.id
+           WHERE u.id = ?
+           ORDER BY created DESC''',
+        (user_id,)
+    ).fetchall()
+
+    return render_template('auth/profile.html', user=user, posts=posts, is_own_profile=is_own_profile)
+
+
+
+
+@bp.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    db = get_db()
+    user = db.execute(
+        'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
+        'FROM user WHERE id = ?',
+        (g.user['id'],)
+    ).fetchone()
+
+    if request.method == 'POST':
+        about = request.form.get('about', '').strip()
+        twitter = request.form.get('twitter_handle', '').strip()
+        instagram = request.form.get('instagram_handle', '').strip()
+        linkedin = request.form.get('linkedin_url', '').strip()
+        
+        error = None
+
+        if twitter and not twitter.startswith('@'):
+            twitter = f'@{twitter}'
+            
+        # Handle profile image upload
+        profile_image = user['profile_image']  # Keep existing image by default
+        if 'profile_image' in request.files:
+            file = request.files['profile_image']
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                # Add timestamp to filename to make it unique
+                timestamp = int(time.time())
+                filename = f"{timestamp}_{filename}"
+                # Create upload folder if it doesn't exist
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                # Save the file
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(file_path)
+                # Update profile_image with the relative path
+                profile_image = f'profile_images/{filename}'
+                
+                # Delete old profile image if it exists
+                if user['profile_image']:
+                    old_image_path = os.path.join('static', user['profile_image'])
+                    if os.path.exists(old_image_path):
+                        os.remove(old_image_path)
+        
+        if error is None:
+            try:
+                db.execute(
+                    '''UPDATE user 
+                       SET about = ?,
+                           twitter_handle = ?,
+                           instagram_handle = ?,
+                           linkedin_url = ?,
+                           profile_image = ?
+                       WHERE id = ?''',
+                    (about, twitter, instagram, linkedin, profile_image, g.user['id'])
+                )
+                db.commit()
+                flash('Profile updated successfully!', 'success')
+                return redirect(url_for('blog.index'))
+            except db.Error as e:
+                error = f"Error updating profile: {e}"
+        
+        flash(error, 'error')
+
+    return render_template('auth/edit_profile.html', user=user)

@@ -1,11 +1,17 @@
 DROP TABLE IF EXISTS user;
 DROP TABLE IF EXISTS post;
+DROP TABLE IF EXISTS post_images;
 
 CREATE TABLE user (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT UNIQUE NOT NULL,
   username TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL
+  password TEXT NOT NULL,
+  about TEXT,
+  twitter_handle TEXT,
+  instagram_handle TEXT,
+  linkedin_url TEXT,
+  profile_image TEXT
 );
 
 CREATE TABLE post (
@@ -14,10 +20,9 @@ CREATE TABLE post (
   created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
-  image_url TEXT,  -- Removed NOT NULL constraint to make it optional
+  image_url TEXT,
   FOREIGN KEY (author_id) REFERENCES user (id)
 );
-
 
 CREATE TABLE post_images (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,7 +30,6 @@ CREATE TABLE post_images (
   image_url TEXT NOT NULL,
   FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
 );
-
 
 
 

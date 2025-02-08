@@ -203,14 +203,40 @@ def update(id):
 @bp.route('/<int:id>/delete', methods=('POST',))
 @login_required
 def delete(id):
-    post = get_post(id)
-    # Delete the image file if it exists
-    if post['image_url']:
-        image_path = os.path.join(current_app.static_folder, post['image_url'])
-        if os.path.exists(image_path):
-            os.remove(image_path)
-    
     db = get_db()
-    db.execute('DELETE FROM post WHERE id = ?', (id,))
-    db.commit()
+    
+    # First, get all image URLs for this post
+    images = db.execute(
+        'SELECT image_url FROM post_images WHERE post_id = ?', 
+        (id,)
+    ).fetchall()
+    
+    # Delete physical image files
+    for image in images:
+        try:
+            image_path = os.path.join(current_app.static_folder, image['image_url'])
+            if os.path.exists(image_path):
+                os.remove(image_path)
+        except Exception as e:
+            # Log error but continue with deletion
+            print(f"Error deleting image file: {e}")
+    
+    try:
+        # Delete image records from database
+        db.execute('DELETE FROM post_images WHERE post_id = ?', (id,))
+        
+        # Delete the post itself
+        db.execute('DELETE FROM post WHERE id = ?', (id,))
+        
+        # Commit all changes
+        db.commit()
+        flash('Post was successfully deleted.')
+    except Exception as e:
+        db.rollback()
+        flash('Error deleting post.')
+        print(f"Database error: {e}")
+        
     return redirect(url_for('blog.index'))
+
+
+

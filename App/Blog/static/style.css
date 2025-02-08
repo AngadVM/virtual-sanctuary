@@ -25,58 +25,142 @@ nav ul li a, nav ul li span, header .action { display: block; padding: 0.5rem; }
 input.danger { color: #cc2f2e; }
 input[type=submit] { align-self: start; min-width: 10em; }
 
-/* New styles for image handling */
-.post-image {
-    margin: 1.5em 0;
-    max-width: 100%;
+/* Image handling styles */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
 }
 
-.post-image img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.image-item {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
-.current-image {
-    margin: 1em 0;
+.image-item img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s ease;
 }
 
-.current-image p {
-    color: slategray;
-    font-style: italic;
-    margin-bottom: 0.5em;
+.image-item:hover img {
+  transform: scale(1.05);
 }
 
-.current-image img {
-    max-width: 300px;
-    height: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 3px;
+.image-item.preview img {
+  height: 150px;
 }
 
-input[type="file"] {
-    margin-bottom: 1em;
-    padding: 0.5em 0;
-    width: 100%;
+.image-controls {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  text-align: center;
 }
 
-/* Hover effects for images */
-.post-image img:hover,
-.current-image img:hover {
-    opacity: 0.9;
-    transition: opacity 0.2s ease-in-out;
+.image-upload-info {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0.5rem 0;
 }
 
-/* Responsive adjustments */
-@media (max-width: 600px) {
-    .current-image img {
-        max-width: 100%;
-    }
+/* Form styles */
+.form-group {
+  margin-bottom: 1.5rem;
 }
 
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
 
+.form-group input[type="text"],
+.form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.modal-content {
+  margin: auto;
+  display: block;
+  max-width: 90%;
+  max-height: 90vh;
+  margin-top: 2rem;
+}
+
+.modal-close {
+  position: absolute;
+  right: 2rem;
+  top: 1rem;
+  color: #fff;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+/* Message styles */
+.error {
+  color: #dc3545;
+  font-size: 0.9rem;
+}
+
+.info {
+  color: #0066cc;
+  font-size: 0.9rem;
+}
+
+/* More images indicator */
+.more-images {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.1);
+  height: 150px;
+  border-radius: 4px;
+}
+
+.more-images a {
+  color: #666;
+  text-decoration: none;
+}
+
+/* Button styles */
+.button-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.button {
+  padding: 0.5rem 1rem;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.danger {
+  background: #dc3545;
+  color: white;
+}
 
 .form-group {
   margin-bottom: 1rem;
@@ -136,5 +220,239 @@ input[type="file"] {
   background-color: #45a049;
 }
 
+/* Profile image styles */
+.nav-profile-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
+.nav-profile-initial {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #4a5568;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-image {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.profile-image-placeholder {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background-color: #4a5568;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 4rem;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.nav-profile {
+  display: flex;
+  align-items: center;
+}
+
+.profile-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+nav {
+  background: #2c3e50;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.nav-brand h1 {
+  margin: 0;
+}
+
+.nav-brand a {
+  color: white;
+  text-decoration: none;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+}
+
+nav ul li {
+  margin-left: 1rem;
+}
+
+nav ul li a {
+  color: white;
+  text-decoration: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+nav ul li a:hover {
+  background-color: rgba(255,255,255,0.1);
+}
+
+.nav-profile {
+  display: flex;
+  align-items: center;
+}
+
+.profile-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-profile-image {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.nav-profile-initial {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #3498db;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.content {
+  padding: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.flash {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f8d7da;
+  color: #721c24;
+  border-radius: 4px;
+}
+
+.flash.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+
+
+
+/* Profile image containers */
+.profile-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 2rem 0;
+}
+
+/* Large profile image for profile page */
+.profile-image {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: #f0f2f5;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Fallback when image fails to load */
+.profile-image-placeholder {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background-color: #4a5568;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    font-weight: bold;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Small profile image for navigation */
+.nav-profile-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: #f0f2f5;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Error handling for images */
+.profile-image:error {
+    display: none;
+}
+
+.profile-image:error + .profile-image-placeholder {
+    display: flex;
+}
+
+/* Image loading state */
+.profile-image-loading {
+    background: linear-gradient(90deg, #f0f2f5 0%, #e0e0e0 50%, #f0f2f5 100%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
 
