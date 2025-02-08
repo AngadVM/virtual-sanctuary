@@ -1,6 +1,5 @@
 import sqlite3
 from datetime import datetime 
-
 import click
 from flask import current_app, g 
 
@@ -20,19 +19,45 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-# Adding the functions that will run the sql commands 
 def init_db():
+    """Initialize the database with schema."""
     db = get_db()
-
-    with current_app.open_resource('schema.sql') as f:
-        db.executescript(f.read().decode('utf8'))
+    
+    try:
+        with current_app.open_resource('schema.sql') as f:
+            # Execute schema in a transaction
+            script = f.read().decode('utf8')
+            # Split the script into individual statements
+            statements = script.split(';')
+            for statement in statements:
+                if statement.strip():  # Skip empty statements
+                    try:
+                        db.execute(statement)
+                    except sqlite3.OperationalError as e:
+                        # Log the error but continue with other statements
+                        current_app.logger.warning(f"Error executing statement: {e}")
+            db.commit()
+    except Exception as e:
+        db.rollback()  # Rollback in case of errors
+        current_app.logger.error(f"Database initialization failed: {e}")
+        raise
 
 @click.command('init-db')
-def init_db_command():
-    """ Clear the existing data and create new tables. """
+@click.option('--force', is_flag=True, help='Force recreate all tables')
+def init_db_command(force):
+    """Clear the existing data and create new tables."""
+    if force:
+        # Drop all tables if force flag is used
+        db = get_db()
+        db.executescript('''
+            DROP TABLE IF EXISTS post_images;
+            DROP TABLE IF EXISTS post;
+            DROP TABLE IF EXISTS user;
+        ''')
+        db.commit()
+        
     init_db()
     click.echo('Initialized the database.')
-
 
 sqlite3.register_converter(
     "timestamp", lambda v: datetime.fromisoformat(v.decode())
@@ -41,5 +66,3 @@ sqlite3.register_converter(
 def init_app(app):
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
-
-
