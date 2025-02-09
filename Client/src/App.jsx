@@ -1,13 +1,16 @@
-import { useState } from 'react'
-import './App.css'
+import { useState } from "react";
+import "./App.css";
+import virtuaryLogo from "./assets/tvs-full-logo.svg";
+import Header from "./components/Header";
 
 function App() {
-  
   return (
     <>
-      <div className='text-4xl rounded-2xl p-2 bg-green-200'>Heyy!</div>
+      <div className="main">
+        <Header />
+      </div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
