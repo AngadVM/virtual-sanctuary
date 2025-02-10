@@ -1,21 +1,4 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  text-align: center;
-}
 body {
+  color:white;
   background: #000;
-  font-family: 'Geist', 'Inter';
-  color: whitesmoke;
-}
-
-/* Extra classes */
-.hover-underline:hover {
-  text-decoration: underline;
-}
-button:hover {
-  cursor: pointer;
-}
-a:hover {
-  cursor: pointer;
 }
