@@ -1,13 +1,14 @@
 import { useState } from "react";
 import "./App.css";
-import virtuaryLogo from "./assets/tvs-full-logo.svg";
-import Header from "./components/Header";
+import HeroSection from "./components/HeroSection";
 
 function App() {
+  const [count, setCount] = useState(0);
+
   return (
     <>
-      <div className="main">
-        <Header />
+      <div>
+        <HeroSection />
       </div>
     </>
   );
