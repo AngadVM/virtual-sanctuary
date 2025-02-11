@@ -1,13 +1,17 @@
-import { useState } from 'react'
-import './App.css'
+import { useState } from "react";
+import "./App.css";
+import HeroSection from "./components/HeroSection";
 
 function App() {
-  
+  const [count, setCount] = useState(0);
+
   return (
     <>
-      <div className='text-4xl rounded-2xl p-2 bg-green-200'>Heyy!</div>
+      <div>
+        <HeroSection />
+      </div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
