@@ -32,6 +32,15 @@ CREATE TABLE post_images (
 );
 
 
+CREATE TABLE comment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES user (id) ON DELETE CASCADE
+);
 
 
 

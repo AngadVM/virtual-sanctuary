@@ -8,32 +8,56 @@
 {% endblock %}
 
 {% block content %}
-  {% for post in posts %}
-    <article class="post">
-      <header>
-        <div>
-          <h1><a href="{{ url_for('blog.get_post', id=post['id']) }}">{{ post['title'] }}</a></h1>
-          <div class="about">by <a href="{{ url_for('auth.profile', user_id=post['author_id']) }}">{{ post['username'] }}</a> on {{ post['created'].strftime('%Y-%m-%d') }}</div>
-        </div>
-        {% if g.user and g.user['id'] == post['author_id'] %}
-          <a class="action" href="{{ url_for('blog.update', id=post['id']) }}">Edit</a>
+  <div class="posts-container">
+    {% for post in posts %}
+      <article class="post">
+        <header>
+          <div class="post-header-content">
+            <div class="post-main-info">
+              <h2>
+                <a href="{{ url_for('blog.view', id=post['id']) }}" class="post-title">
+                  {{ post['title'] }}
+                </a>
+              </h2>
+              <div class="about">
+                by <a href="{{ url_for('auth.profile', user_id=post['author_id']) }}" 
+                   class="author-link">{{ post['username'] }}</a>
+                on <span class="post-date">{{ post['created'].strftime('%Y-%m-%d') }}</span>
+              </div>
+            </div>
+            {% if g.user and g.user['id'] == post['author_id'] %}
+              <a class="action edit-button" 
+                 href="{{ url_for('blog.update', id=post['id']) }}">Edit</a>
+            {% endif %}
+          </div>
+        </header>
+        
+        {% if post['images'] %}
+          <div class="post-images-container">
+            <div class="post-images">
+              {% for image in post['images'][:3] %}
+                <div class="post-image-wrapper">
+                  <img src="{{ url_for('static', filename=image) }}" 
+                       alt="Image from {{ post['title'] }}"
+                       class="post-thumbnail">
+                </div>
+              {% endfor %}
+            </div>
+            {% if post['images']|length > 3 %}
+              <div class="more-images-indicator">
+                +{{ post['images']|length - 3 }} more
+              </div>
+            {% endif %}
+          </div>
         {% endif %}
-      </header>
-      
-      {% if post['images'] %}
-        <div class="post-images">
-          {% for image in post['images'][:3] %}
-            <img src="{{ url_for('static', filename=image) }}" 
-                 alt="Post image" 
-                 style="max-width: 200px; margin: 0.5em;">
-          {% endfor %}
-        </div>
+        
+        <p class="post-body">{{ post['body']|truncate(200) }}</p>
+        <a href="{{ url_for('blog.view', id=post['id']) }}" 
+           class="read-more">Read more...</a>
+      </article>
+      {% if not loop.last %}
+        <hr class="post-divider">
       {% endif %}
-      
-      <p class="body">{{ post['body'] }}</p>
-    </article>
-    {% if not loop.last %}
-      <hr>
-    {% endif %}
-  {% endfor %}
+    {% endfor %}
+  </div>
 {% endblock %}
