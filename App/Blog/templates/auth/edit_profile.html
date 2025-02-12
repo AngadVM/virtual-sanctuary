@@ -1,0 +1,80 @@
+{# edit_profile.html #}
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Edit Profile{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post" class="profile-form" enctype="multipart/form-data">
+    <div class="form-section">
+      <div class="profile-image-section">
+        <div class="current-profile">
+          {% if user.profile_image %}
+            <img src="{{ url_for('static', filename=user.profile_image) }}" 
+                 alt="Current profile picture"
+                 class="current-profile-image"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="profile-image-placeholder" style="display: none;">
+              {{ user.username[0].upper() }}
+            </div>
+          {% else %}
+            <div class="profile-image-placeholder">
+              {{ user.username[0].upper() }}
+            </div>
+          {% endif %}
+        </div>
+        
+        <div class="file-upload">
+          <label for="profile_image" class="file-label">Change Profile Picture</label>
+          <input type="file" 
+                 id="profile_image" 
+                 name="profile_image" 
+                 accept=".jpg,.jpeg,.png,.gif"
+                 class="file-input">
+          <small class="file-help">Supported formats: JPG, PNG, GIF</small>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="about">About</label>
+        <textarea name="about" 
+                  id="about" 
+                  rows="4" 
+                  placeholder="Tell us about yourself">{{ user.about or '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="twitter_handle">Twitter Handle</label>
+        <input type="text" 
+               name="twitter_handle" 
+               id="twitter_handle" 
+               value="{{ user.twitter_handle or '' }}"
+               placeholder="@username">
+      </div>
+
+      <div class="form-group">
+        <label for="instagram_handle">Instagram Handle</label>
+        <input type="text" 
+               name="instagram_handle" 
+               id="instagram_handle" 
+               value="{{ user.instagram_handle or '' }}"
+               placeholder="username">
+      </div>
+
+      <div class="form-group">
+        <label for="linkedin_url">LinkedIn URL</label>
+        <input type="url" 
+               name="linkedin_url" 
+               id="linkedin_url" 
+               value="{{ user.linkedin_url or '' }}"
+               placeholder="https://linkedin.com/in/username">
+      </div>
+      
+      <div class="form-actions">
+        <input type="submit" value="Save Changes" class="btn-primary">
+        <a href="{{ url_for('auth.profile') }}" class="btn-secondary">Cancel</a>
+      </div>
+    </div>
+  </form>
+{% endblock %}
