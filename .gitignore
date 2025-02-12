@@ -176,6 +176,6 @@ cython_debug/
 
 # Uploads 
 App/Blog/static/uploads
-
+App/Blog/static/profile_images
 db.py
 
