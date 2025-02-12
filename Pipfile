@@ -7,6 +7,7 @@ name = "pypi"
 google-generativeai = "*"
 python-dotenv = "*"
 flask = "*"
+feedparser = "*"
 
 [dev-packages]
 
