@@ -179,3 +179,5 @@ App/Blog/static/uploads
 App/Blog/static/profile_images
 db.py
 
+Temp/Mixed/mixed_output.mp3
+Temp/Normal/main.mp3

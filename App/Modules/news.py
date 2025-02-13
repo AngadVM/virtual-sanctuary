@@ -12,7 +12,7 @@ def get_news_rss(animal_name:str):
     ]
     
     news_items = []
-    for feed_url in feeds:
+    for feed_url in feeds: 
         try:
             feed = feedparser.parse(feed_url)
             for entry in feed.entries[:5]:
