@@ -4,6 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+google-generativeai = "*"
+python-dotenv = "*"
+flask = "*"
+feedparser = "*"
+edge-tts = "*"
+pipfile = "*"
+gtts = "*"
+pydub = "*"
 
 [dev-packages]
 
