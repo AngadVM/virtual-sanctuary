@@ -1,5 +1,6 @@
-from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, current_app
+from flask import(
+    Blueprint, flash, g, redirect, render_template, 
+    request, url_for, current_app
 )
 from werkzeug.exceptions import abort
 from werkzeug.utils import secure_filename
@@ -7,6 +8,7 @@ from Blog.auth import login_required
 from Blog.db import get_db
 import os
 
+############## below is original code ##################
 bp = Blueprint('blog', __name__)
 
 # Helper functions

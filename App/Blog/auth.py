@@ -378,3 +378,4 @@ def edit_profile():
 
     return render_template('auth/edit_profile.html', user=user)
     return render_template('auth/edit_profile.html', user=user)
+
