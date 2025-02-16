@@ -8,7 +8,7 @@ from Blog.auth import login_required
 from Blog.db import get_db
 import os
 
-############## below is original code ##################
+
 bp = Blueprint('blog', __name__)
 
 # Helper functions
