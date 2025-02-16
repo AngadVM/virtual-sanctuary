@@ -1,16 +1,34 @@
 import functools
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from Blog.db import get_db
 import re, os, time, requests
 from functools import lru_cache
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from oauthlib.oauth2 import WebApplicationClient
+import json
 
 
 
 
 UPLOAD_FOLDER = os.path.join('static', 'profile_images')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+# For development only -- remove in production!
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+# Google OAuth2 config
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
+
+# Blueprint for auth
+bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+# Initialize OAuth2 client
+client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 
 def allowed_file(filename):
@@ -125,8 +143,93 @@ class SocialMediaValidator:
 
 
 
+# Add Google login routes
+@bp.route('/google-login')
+def google_login():
+    # Find out what URL to hit for Google login
+    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+
+    # Use library to construct the request for login
+    request_uri = client.prepare_request_uri(
+        authorization_endpoint,
+        redirect_uri=request.base_url + "/callback",
+        scope=["openid", "email", "profile"],
+    )
+    return redirect(request_uri)
 
 
+
+@bp.route('/google-login/callback')
+def google_callback():
+    try:
+        # Get authorization code Google sent back
+        code = request.args.get("code")
+        google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+        token_endpoint = google_provider_cfg["token_endpoint"]
+
+        # Prepare and send request to get tokens
+        token_url, headers, body = client.prepare_token_request(
+            token_endpoint,
+            authorization_response=request.url,
+            redirect_url=request.base_url,
+            code=code
+        )
+
+        token_response = requests.post(
+            token_url,
+            headers=headers,
+            data=body,
+            auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
+        )
+
+        # Parse the tokens
+        client.parse_request_body_response(json.dumps(token_response.json()))
+        
+        # Get user info from Google
+        userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
+        uri, headers, body = client.add_token(userinfo_endpoint)
+        userinfo_response = requests.get(uri, headers=headers, data=body)
+
+        if userinfo_response.json().get("email_verified"):
+            google_id = userinfo_response.json()["sub"]
+            email = userinfo_response.json()["email"]
+            username = userinfo_response.json().get("given_name", email.split('@')[0])
+        else:
+            flash("Google authentication failed - Email not verified", "error")
+            return redirect(url_for("auth.login"))
+
+        # Check if user exists and handle accordingly
+        db = get_db()
+        user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
+
+        if user is None:
+            try:
+                # Create new user
+                google_password = os.urandom(24).hex()
+                db.execute(
+                    "INSERT INTO user (email, username, password, google_id) VALUES (?, ?, ?, ?)",
+                    (email, username, generate_password_hash(google_password), google_id)
+                )
+                db.commit()
+                user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
+                flash('Account created successfully!', 'success')
+            except db.IntegrityError as e:
+                flash('Error creating account. Please try again.', 'error')
+                return redirect(url_for("auth.login"))
+
+        # Log in the user
+        session.clear()
+        session['user_id'] = user['id']
+        return redirect(url_for('index'))
+
+    except Exception as e:
+        flash(f"Authentication error: {str(e)}", "error")
+        return redirect(url_for("auth.login"))
+
+
+
+# Modify existing register route to handle both traditional and Google sign-up
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -136,7 +239,6 @@ def register():
         db = get_db()
         error = None
 
-        
         # Input validation
         if not username:
             error = 'Username is required'
@@ -151,34 +253,28 @@ def register():
         elif not validate_email(email):
             error = 'Invalid email format'
 
-
         if error is None:
             try:
-                # Check if email already exists
                 existing_email = db.execute(
                     'SELECT id FROM user WHERE email = ?', (email,)
                 ).fetchone()
                 if existing_email:
                     error = 'Email already registered'
                 else:
-
                     db.execute(
                         "INSERT INTO user (email, username, password) VALUES (?, ?, ?)",
-                        (email, username, generate_password_hash(password)),
+                        (email, username, generate_password_hash(password))
                     )
                     db.commit()
                     flash('Registration successful! Please log in.', 'success')
                     return redirect(url_for("auth.login"))
-
-
             except db.IntegrityError:
                 error = f"User {username} is already registered."
-             
         flash(error, 'error')
 
     return render_template('auth/register.html')
 
-
+# Keep the rest of your existing code...
 
 
 

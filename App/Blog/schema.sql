@@ -11,7 +11,8 @@ CREATE TABLE user (
   twitter_handle TEXT,
   instagram_handle TEXT,
   linkedin_url TEXT,
-  profile_image TEXT
+  profile_image TEXT,
+  google_id TEXT UNIQUE
 );
 
 CREATE TABLE post (
@@ -43,4 +44,4 @@ CREATE TABLE comment (
 );
 
 
-
+--ALTER TABLE user ADD COLUMN google_id TEXT UNIQUE;

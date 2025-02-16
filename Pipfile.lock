@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5d9224cc6da9d1ce1f61d58d5c3178679ec0cce6fefdc13bb48f67378831fdff"
+            "sha256": "5cfeb03161cad38ba5a5112aca6d825505bd6edb66d64ba19bf2b41a668e4e21"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -411,17 +411,18 @@
         },
         "google-api-python-client": {
             "hashes": [
-                "sha256:63d61fb3e4cf3fb31a70a87f45567c22f6dfe87bbfa27252317e3e2c42900db4",
-                "sha256:a8ccafaecfa42d15d5b5c3134ced8de08380019717fc9fb1ed510ca58eca3b7e"
+                "sha256:324c0cce73e9ea0a0d2afd5937e01b7c2d6a4d7e2579cdb6c384f9699d6c9f37",
+                "sha256:9476a5a4f200bae368140453df40f9cda36be53fa7d0e9a9aac4cdb859a26448"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==2.160.0"
+            "version": "==2.161.0"
         },
         "google-auth": {
             "hashes": [
                 "sha256:8285113607d3b80a3f1543b75962447ba8a09fe85783432a784fdeef6ac094c4",
                 "sha256:e7dae6694313f434a2727bf2906f27ad259bae090d7aa896590d86feec3d9d4a"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.7'",
             "version": "==2.38.0"
         },
@@ -431,6 +432,15 @@
                 "sha256:b65a0a2123300dd71281a7bf6e64d65a0759287df52729bdd1ae2e47dc311a3d"
             ],
             "version": "==0.2.0"
+        },
+        "google-auth-oauthlib": {
+            "hashes": [
+                "sha256:2d58a27262d55aa1b87678c3ba7142a080098cbc2024f903c62355deb235d91f",
+                "sha256:afd0cad092a2eaa53cd8e8298557d6de1034c6cb4a740500b5357b648af97263"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.6'",
+            "version": "==1.2.1"
         },
         "google-generativeai": {
             "hashes": [
@@ -721,6 +731,15 @@
             "markers": "python_version >= '3.8'",
             "version": "==6.1.0"
         },
+        "oauthlib": {
+            "hashes": [
+                "sha256:8139f29aac13e25d502680e9e19963e83f16838d48a0d71c287fe40e7067fbca",
+                "sha256:9859c40929662bec5d64f34d01c99e093149682a3f38915dc0655d5a633dd918"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.6'",
+            "version": "==3.2.2"
+        },
         "pipfile": {
             "hashes": [
                 "sha256:f7d9f15de8b660986557eb3cc5391aa1a16207ac41bc378d03f414762d36c984"
@@ -984,7 +1003,7 @@
                 "sha256:506ff4f4386c4cec0590ec19e6302d3aedb992fdc02c761e90416f158dacf8e1",
                 "sha256:61980854fd66de3a90028d679a954d5f2623e83144b5afe5ee86f43d762e5f0a"
             ],
-            "markers": "python_version >= '3.1'",
+            "markers": "python_version > '3.0'",
             "version": "==3.2.1"
         },
         "python-dotenv": {
@@ -1001,8 +1020,17 @@
                 "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760",
                 "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.8'",
             "version": "==2.32.3"
+        },
+        "requests-oauthlib": {
+            "hashes": [
+                "sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36",
+                "sha256:b3dffaebd884d8cd778494369603a9e7b58d29111bf6b41bdc2dcd87203af4e9"
+            ],
+            "markers": "python_version >= '3.4'",
+            "version": "==2.0.0"
         },
         "rsa": {
             "hashes": [
@@ -1038,7 +1066,7 @@
                 "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
                 "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"
             ],
-            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2'",
             "version": "==0.10.2"
         },
         "tqdm": {
