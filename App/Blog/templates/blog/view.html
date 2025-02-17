@@ -5,98 +5,88 @@
     <h1>{% block title %}{{ post['title'] }}{% endblock %}</h1>
     <div class="post-actions flex gap-4 mt-4">
       {% if g.user and g.user['id'] == post['author_id'] %}
-        <a class="action edit-button px-4 py-2" 
-           href="{{ url_for('blog.update', id=post['id']) }}">Edit</a>
+        <a class="action-button" href="{{ url_for('blog.update', id=post['id']) }}">Edit</a>
       {% endif %}
-      <a class="action back-button px-4 py-2" 
-         href="{{ url_for('blog.index') }}">Back to Posts</a>
+      <a class="action-button" href="{{ url_for('blog.index') }}">Back to Posts</a>
     </div>
   </div>
 {% endblock %}
 
 {% block content %}
-  <article class="post-detail max-w-4xl mx-auto">
-    <header class="post-header mb-8">
-      <h1 class="post-title text-3xl mb-4">{{ post['title'] }}</h1>
-      <div class="about text-gray-600">
-        by <a href="{{ url_for('auth.profile', user_id=post['author_id']) }}" 
-           class="author-link hover:underline">{{ post['username'] }}</a>
-        on <span class="post-date">{{ post['created'].strftime('%Y-%m-%d') }}</span>
-      </div>
-    </header>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 
-    {% if post['images'] %}
-      <div class="post-images-gallery grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
-        {% for image in post['images'] %}
-          <div class="image-container aspect-video rounded-lg overflow-hidden">
-            <img src="{{ url_for('static', filename=image) }}" 
-                 alt="Image from {{ post['title'] }}"
-                 class="post-image object-cover w-full h-full">
+<article class="editor-container">
+  <header class="post-header mb-8">
+    <h1 class="blog-title">{{ post['title'] }}</h1>
+    <div class="about text-gray-600">
+      by <a href="{{ url_for('auth.profile', user_id=post['author_id']) }}" 
+         class="author-link hover:underline">{{ post['username'] }}</a>
+      on <span class="post-date">{{ post['created'].strftime('%Y-%m-%d') }}</span>
+    </div>
+  </header>
+
+  {% if post['images'] %}
+    <div class="post-gallery">
+      {% for image in post['images'] %}
+        <div class="image-container">
+          <img src="{{ url_for('static', filename=image) }}" 
+               alt="Image from {{ post['title'] }}"
+               class="post-image">
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="blog-content">
+    {{ post['body']|safe }}
+  </div>
+
+  <section class="comments-section">
+    <h2>Comments</h2>
+    
+    {% if g.user %}
+      <form method="post" 
+            action="{{ url_for('blog.add_comment', post_id=post['id']) }}" 
+            class="comment-form">
+        <textarea 
+          name="body" 
+          placeholder="Share your thoughts..." 
+          required
+          class="blog-content"
+        ></textarea>
+        <button type="submit" class="action-button">Post Comment</button>
+      </form>
+    {% else %}
+      <p class="login-prompt">
+        <a href="{{ url_for('auth.login') }}">Log in</a> to join the discussion.
+      </p>
+    {% endif %}
+
+    {% if comments %}
+      <div class="comments-list">
+        {% for comment in comments %}
+          <div class="comment">
+            <div class="comment-header">
+              <span class="comment-author">{{ comment['username'] }}</span>
+              <span class="comment-date">
+                {{ comment['created'].strftime('%Y-%m-%d %H:%M') }}
+              </span>
+              {% if g.user and (g.user['id'] == comment['author_id'] or g.user['id'] == post['author_id']) %}
+                <form action="{{ url_for('blog.delete_comment', id=comment['id']) }}" 
+                      method="post" 
+                      class="comment-actions">
+                  <button type="submit" class="action-button danger-button"
+                          onclick="return confirm('Delete this comment?');">Delete</button>
+                </form>
+              {% endif %}
+            </div>
+            <div class="comment-content blog-content">{{ comment['body'] }}</div>
           </div>
         {% endfor %}
       </div>
+    {% else %}
+      <p class="no-comments">Be the first to comment on this post!</p>
     {% endif %}
-
-    <div class="post-content prose max-w-none mb-12">
-      {{ post['body'] }}
-    </div>
-
-    <section class="comments-section">
-      <h2 class="text-2xl mb-6">Comments</h2>
-      
-      {% if g.user %}
-        <form method="post" 
-              action="{{ url_for('blog.add_comment', post_id=post['id']) }}" 
-              class="comment-form mb-8">
-          <textarea 
-            name="body" 
-            placeholder="Share your thoughts..." 
-            required
-            class="comment-input w-full p-4 rounded-lg border min-h-[100px]"
-          ></textarea>
-          <button type="submit" 
-                  class="comment-submit mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            Post Comment
-          </button>
-        </form>
-      {% else %}
-        <p class="login-prompt mb-8 text-gray-600">
-          <a href="{{ url_for('auth.login') }}" 
-             class="login-link text-blue-600 hover:underline">Log in</a> 
-          to join the discussion.
-        </p>
-      {% endif %}
-
-      {% if comments %}
-        <div class="comments-list space-y-6">
-          {% for comment in comments %}
-            <div class="comment bg-gray-50 rounded-lg p-6">
-              <div class="comment-header flex justify-between items-start mb-4">
-                <div class="comment-meta">
-                  <span class="comment-author font-medium">{{ comment['username'] }}</span>
-                  <span class="comment-date text-sm text-gray-600 ml-4">
-                    {{ comment['created'].strftime('%Y-%m-%d %H:%M') }}
-                  </span>
-                </div>
-                {% if g.user and (g.user['id'] == comment['author_id'] or g.user['id'] == post['author_id']) %}
-                  <form action="{{ url_for('blog.delete_comment', id=comment['id']) }}" 
-                        method="post" 
-                        class="comment-actions">
-                    <button 
-                      type="submit" 
-                      class="delete-comment text-red-600 hover:text-red-700 text-sm"
-                      onclick="return confirm('Are you sure you want to delete this comment?');"
-                    >Delete</button>
-                  </form>
-                {% endif %}
-              </div>
-              <div class="comment-content text-gray-700">{{ comment['body'] }}</div>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="no-comments text-gray-600">Be the first to comment on this post!</p>
-      {% endif %}
-    </section>
-  </article>
+  </section>
+</article>
 {% endblock %}

@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from Blog.auth import login_required
 from Blog.db import get_db
 import os
-
+import bleach
 
 bp = Blueprint('blog', __name__)
 
@@ -108,37 +108,53 @@ def create():
         if error is not None:
             flash(error)
         else:
+            # Sanitize HTML content while allowing specific tags
+            allowed_tags = [
+                'p', 'h1', 'h2', 'strong', 'em', 'u', 'blockquote', 
+                'code', 'pre', 'ol', 'ul', 'li', 'a'
+            ]
+            allowed_attrs = {
+                'a': ['href', 'title'],
+                '*': ['class']
+            }
+            clean_body = bleach.clean(
+                body,
+                tags=allowed_tags,
+                attributes=allowed_attrs,
+                strip=True
+            )
+
             db = get_db()
-            # Insert post first
+            # Insert post
             cursor = db.execute(
                 'INSERT INTO post (title, body, author_id)'
                 ' VALUES (?, ?, ?)',
-                (title, body, g.user['id'])
+                (title, clean_body, g.user['id'])
             )
             post_id = cursor.lastrowid
 
             # Handle multiple image uploads
             images = request.files.getlist('images')
+            upload_folder = os.path.join(current_app.static_folder, 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+
             for file in images:
-                if file and file.filename:
-                    if allowed_file(file.filename):
-                        filename = secure_filename(file.filename)
-                        os.makedirs(os.path.join(current_app.static_folder, 'uploads'), exist_ok=True)
-                        file_path = os.path.join(current_app.static_folder, 'uploads', filename)
-                        file.save(file_path)
-                        
-                        # Save image path to database
-                        db.execute(
-                            'INSERT INTO post_images (post_id, image_url) VALUES (?, ?)',
-                            (post_id, f'uploads/{filename}')
-                        )
-                    else:
-                        flash('Invalid file type. Allowed types are png, jpg, jpeg, gif')
+                if file and file.filename and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(upload_folder, filename)
+                    file.save(file_path)
+                    
+                    # Save image path to database
+                    db.execute(
+                        'INSERT INTO post_images (post_id, image_url) VALUES (?, ?)',
+                        (post_id, f'uploads/{filename}')
+                    )
 
             db.commit()
             return redirect(url_for('blog.index'))
 
     return render_template('blog/create.html')
+
 
 @bp.route('/<int:id>/update', methods=('GET', 'POST'))
 @login_required

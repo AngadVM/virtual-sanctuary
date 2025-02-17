@@ -16,6 +16,7 @@ google-auth = "*"
 google-auth-oauthlib = "*"
 requests = "*"
 oauthlib = "*"
+bleach = "*"
 
 [dev-packages]
 

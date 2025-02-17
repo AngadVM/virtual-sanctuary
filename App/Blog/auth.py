@@ -11,12 +11,10 @@ from oauthlib.oauth2 import WebApplicationClient
 import json
 
 
-
-
 UPLOAD_FOLDER = os.path.join('static', 'profile_images')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# For development only -- remove in production!
+# For development only 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # Google OAuth2 config
@@ -390,12 +388,43 @@ def edit_profile():
     ).fetchone()
 
     if request.method == 'POST':
+        # Get form data
+        username = request.form.get('username', '').strip()
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
         about = request.form.get('about', '').strip()
         twitter = request.form.get('twitter_handle', '').strip()
         instagram = request.form.get('instagram_handle', '').strip()
         linkedin = request.form.get('linkedin_url', '').strip()
         
         error = None
+        updates = {}
+        
+        # Username validation
+        if username and username != user['username']:
+            if len(username) < 3:
+                error = 'Username must be at least 3 characters long'
+            else:
+                # Check if username is already taken
+                existing_user = db.execute(
+                    'SELECT id FROM user WHERE username = ? AND id != ?',
+                    (username, g.user['id'])
+                ).fetchone()
+                if existing_user:
+                    error = 'Username already taken'
+                else:
+                    updates['username'] = username
+
+        # Password validation
+        if current_password and new_password:
+            if not check_password_hash(user['password'], current_password):
+                error = 'Current password is incorrect'
+            elif not validate_password(new_password):
+                error = 'New password must be at least 8 characters and contain uppercase, lowercase, and numbers'
+            else:
+                updates['password'] = generate_password_hash(new_password)
+
+        # Social media validation
         validator = SocialMediaValidator()
 
         # Validate Twitter handle
@@ -405,7 +434,7 @@ def edit_profile():
                 error = "Invalid Twitter handle format"
             elif not validator.verify_handle_exists(twitter, 'twitter'):
                 error = "Twitter handle does not exist"
-            twitter = f'@{twitter}'  # Add @ prefix for storage
+            updates['twitter_handle'] = f'@{twitter}'
 
         # Validate Instagram handle
         if instagram:
@@ -414,6 +443,7 @@ def edit_profile():
                 error = "Invalid Instagram handle format"
             elif not validator.verify_handle_exists(instagram, 'instagram'):
                 error = "Instagram handle does not exist"
+            updates['instagram_handle'] = instagram
 
         # Validate LinkedIn URL
         if linkedin:
@@ -421,50 +451,49 @@ def edit_profile():
                 error = "Invalid LinkedIn URL format"
             elif not validator.verify_handle_exists(linkedin, 'linkedin'):
                 error = "LinkedIn profile URL does not exist"
+            updates['linkedin_url'] = linkedin
 
         # Handle profile image upload
-        profile_image = user['profile_image']
-        
         if 'profile_image' in request.files:
             file = request.files['profile_image']
             if file and file.filename != '':
-                if allowed_file(file.filename):
+                if not allowed_file(file.filename):
+                    error = f"Invalid file type. Allowed types are: {', '.join(ALLOWED_EXTENSIONS)}"
+                else:
                     try:
-                        upload_folder = os.path.join(current_app.root_path, 'static', 'profile_images')
-                        timestamp = int(time.time())
-                        original_filename = secure_filename(file.filename)
-                        filename = f"{timestamp}_{original_filename}"
-                        file_path = os.path.join(upload_folder, filename)
-                        
-                        file.save(file_path)
-                        profile_image = os.path.join('profile_images', filename)
-                        
+                        # Delete old profile image if it exists
                         if user['profile_image']:
                             old_image_path = os.path.join(current_app.root_path, 'static', user['profile_image'])
                             if os.path.exists(old_image_path):
                                 os.remove(old_image_path)
-                                
+                        
+                        # Save new profile image
+                        upload_folder = os.path.join(current_app.root_path, 'static', 'profile_images')
+                        timestamp = int(time.time())
+                        filename = f"{timestamp}_{secure_filename(file.filename)}"
+                        file_path = os.path.join(upload_folder, filename)
+                        file.save(file_path)
+                        updates['profile_image'] = os.path.join('profile_images', filename)
                     except Exception as e:
                         error = f"Error saving profile image: {str(e)}"
                         print(f"File upload error: {str(e)}")
-                else:
-                    error = f"Invalid file type. Allowed types are: {', '.join(ALLOWED_EXTENSIONS)}"
-        
-        if error is None:
+
+        # Update about text if changed
+        if about != user['about']:
+            updates['about'] = about
+
+        if error is None and updates:
             try:
-                db.execute(
-                    '''UPDATE user 
-                       SET about = ?,
-                           twitter_handle = ?,
-                           instagram_handle = ?,
-                           linkedin_url = ?,
-                           profile_image = ?
-                       WHERE id = ?''',
-                    (about, twitter, instagram, linkedin, profile_image, g.user['id'])
-                )
+                # Build dynamic UPDATE query based on changed fields
+                update_fields = ', '.join([f"{key} = ?" for key in updates.keys()])
+                query = f'UPDATE user SET {update_fields} WHERE id = ?'
+                
+                # Execute update with dynamic parameters
+                db.execute(query, (*updates.values(), g.user['id']))
                 db.commit()
+                
                 flash('Profile updated successfully!', 'success')
-                return redirect(url_for('blog.index'))
+                return redirect(url_for('auth.profile'))
             except db.Error as e:
                 error = f"Error updating profile: {str(e)}"
                 print(f"Database error: {str(e)}")
@@ -473,5 +502,3 @@ def edit_profile():
             flash(error, 'error')
 
     return render_template('auth/edit_profile.html', user=user)
-    return render_template('auth/edit_profile.html', user=user)
-
