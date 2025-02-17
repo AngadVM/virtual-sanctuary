@@ -5,37 +5,73 @@
 {% endblock %}
 
 {% block content %}
-  <form method="post" enctype="multipart/form-data">
-    <label for="title">Title</label>
-    <input name="title" id="title"
-      value="{{ request.form['title'] or post['title'] }}" required>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<form method="post" enctype="multipart/form-data">
+  <div class="editor-container">
+    <input type="text" name="title" id="title" class="blog-title"
+           value="{{ request.form['title'] or post['title'] }}" required>
+    <div id="editor"></div>
+    <input type="hidden" name="body" id="hidden-content">
     
-    <label for="body">Body</label>
-    <textarea name="body" id="body">{{ request.form['body'] or post['body'] }}</textarea>
+    <div class="image-section">
+      <h3>Current Images</h3>
+      <div class="post-gallery">
+        {% if images %}
+          {% for image in images %}
+            <div class="image-preview">
+              <img src="{{ url_for('static', filename=image) }}" alt="Post image">
+              <div>
+                <input type="checkbox" name="remove_images" value="{{ image }}" id="remove_{{ loop.index }}">
+                <label for="remove_{{ loop.index }}">Remove</label>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p>No images uploaded</p>
+        {% endif %}
+      </div>
+      
+      <h3>Add New Images</h3>
+      <input type="file" name="images" id="images" multiple accept="image/*">
+    </div>
     
-    <h3>Existing Images</h3>
-    {% if images %}
-      {% for image in images %}
-        <div>
-          <input type="checkbox" name="remove_images" value="{{ image }}" id="remove_{{ loop.index }}">
-          <label for="remove_{{ loop.index }}">
-            <img src="{{ url_for('static', filename=image) }}" alt="Post image" style="max-width: 300px;">
-            Remove this image
-          </label>
-        </div>
-      {% endfor %}
-    {% else %}
-      <p>No images uploaded</p>
-    {% endif %}
-    
-    <label for="images">Upload New Images</label>
-    <input type="file" name="images" id="images" multiple accept="image/*">
-    
-    <input type="submit" value="Save">
-  </form>
-  
-  <hr>
-  <form action="{{ url_for('blog.delete', id=post['id']) }}" method="post">
-    <input class="danger" type="submit" value="Delete" onclick="return confirm('Are you sure?');">
-  </form>
+    <div class="action-buttons">
+      <button type="submit" class="action-button">Save Changes</button>
+    </div>
+  </div>
+</form>
+
+<form action="{{ url_for('blog.delete', id=post['id']) }}" method="post" class="delete-form">
+  <button type="submit" class="action-button danger-button" 
+          onclick="return confirm('Are you sure you want to delete this post?');">
+    Delete Post
+  </button>
+</form>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
+<script>
+  var quill = new Quill('#editor', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, false] }],
+        ['bold', 'italic', 'underline'],
+        ['link', 'blockquote', 'code-block'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['clean']
+      ]
+    }
+  });
+
+  // Load existing content
+  quill.root.innerHTML = {{ post['body']|tojson|safe }};
+
+  // Handle form submission
+  document.querySelector('form').onsubmit = function() {
+    document.querySelector('#hidden-content').value = quill.root.innerHTML;
+    return true;
+  };
+</script>
 {% endblock %}

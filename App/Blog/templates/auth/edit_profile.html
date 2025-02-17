@@ -75,6 +75,24 @@
         <input type="submit" value="Save Changes" class="btn-primary">
         <a href="{{ url_for('auth.profile') }}" class="btn-secondary">Cancel</a>
       </div>
+
+      <!-- Add these fields to your existing form -->
+      <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" name="username" id="username" value="{{ user['username'] }}" class="form-control">
+      </div>
+
+      <div class="form-group">
+          <label for="current_password">Current Password</label>
+          <input type="password" name="current_password" id="current_password" class="form-control">
+      </div>
+
+      <div class="form-group">
+          <label for="new_password">New Password (leave blank to keep current)</label>
+          <input type="password" name="new_password" id="new_password" class="form-control">
+      </div>
+
+
     </div>
   </form>
 {% endblock %}

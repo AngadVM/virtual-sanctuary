@@ -5,13 +5,109 @@
 {% endblock %}
 
 {% block content %}
-  <form method="post" enctype="multipart/form-data">
-    <label for="title">Title</label>
-    <input name="title" id="title" value="{{ request.form['title'] }}" required>
-    <label for="body">Body</label>
-    <textarea name="body" id="body">{{ request.form['body'] }}</textarea>
-    <label for="images">Upload Images (multiple allowed)</label>
-    <input type="file" name="images" id="images" multiple accept="image/*">
-    <input type="submit" value="Save">
-  </form>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+  .editor-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 4px;
+  }
+
+  #title {
+    width: 100%;
+    font-size: 32px;
+    padding: 20px;
+    border: none;
+    font-family: 'Merriweather', serif;
+    outline: none;
+    margin-bottom: 10px;
+  }
+
+  #editor {
+    min-height: 400px;
+    font-size: 18px;
+    font-family: 'Merriweather', serif;
+  }
+
+  .ql-editor {
+    font-family: 'Merriweather', serif;
+    line-height: 1.8;
+  }
+
+  .ql-editor h1, .ql-editor h2 {
+    font-weight: 700;
+    margin-top: 2em;
+  }
+
+  .ql-editor p {
+    margin-bottom: 1.2em;
+  }
+
+  .image-upload {
+    margin: 20px;
+    padding: 20px;
+    border: 2px dashed #ddd;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .submit-btn {
+    background: #1a8917;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 20px;
+    float: right;
+  }
+
+  .submit-btn:hover {
+    background: #156912;
+  }
+</style>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="editor-container">
+    <input type="text" name="title" id="title" placeholder="Title" required>
+    <div id="editor"></div>
+    <input type="hidden" name="body" id="hidden-content">
+    
+    <div class="image-upload">
+      <label for="images">Add images to your story</label>
+      <input type="file" name="images" id="images" multiple accept="image/*">
+    </div>
+    
+    <button type="submit" class="submit-btn">Publish</button>
+  </div>
+</form>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
+<script>
+  var quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: 'Tell your story...',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, false] }],
+        ['bold', 'italic', 'underline'],
+        ['link', 'blockquote', 'code-block'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['clean']
+      ]
+    }
+  });
+
+  // Handle form submission
+  document.querySelector('form').onsubmit = function() {
+    var content = document.querySelector('#hidden-content');
+    content.value = quill.root.innerHTML;
+    return true;
+  };
+</script>
 {% endblock %}
