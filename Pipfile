@@ -17,6 +17,11 @@ google-auth-oauthlib = "*"
 requests = "*"
 oauthlib = "*"
 bleach = "*"
+pandas = "*"
+numpy = "*"
+folium = "*"
+ipython = "*"
+plotly = "*"
 
 [dev-packages]
 
