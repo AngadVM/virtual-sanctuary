@@ -42,6 +42,25 @@
                    class="post-image">
             </div>
           {% endfor %}
+          {% if total_pages > 1 %}
+          <div class="pagination">
+              {% if current_page > 1 %}
+                  <a href="{{ url_for('blog.index', page=current_page-1) }}">&laquo; Previous</a>
+              {% endif %}
+              
+              {% for page in range(1, total_pages + 1) %}
+                  {% if page == current_page %}
+                      <span class="current-page">{{ page }}</span>
+                  {% else %}
+                      <a href="{{ url_for('blog.index', page=page) }}">{{ page }}</a>
+                  {% endif %}
+              {% endfor %}
+              
+              {% if current_page < total_pages %}
+                  <a href="{{ url_for('blog.index', page=current_page+1) }}">Next &raquo;</a>
+              {% endif %}
+          </div>
+          {% endif %}
           {% if post['images']|length > 3 %}
             <div class="more-images">+{{ post['images']|length - 3 }} more</div>
           {% endif %}

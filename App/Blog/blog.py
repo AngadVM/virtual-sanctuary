@@ -8,6 +8,9 @@ from Blog.auth import login_required
 from Blog.db import get_db
 import os
 import bleach
+from math import ceil
+
+
 
 bp = Blueprint('blog', __name__)
 
@@ -62,14 +65,27 @@ def get_post(id, check_author=True):
     return post_dict
 
 
-# Route handlers
-@bp.route('/')
-def index():
+def get_paginated_posts(page=1, per_page=5):
+    """Get paginated posts with their images."""
     db = get_db()
+    
+    # Get total posts count
+    total_posts = db.execute('SELECT COUNT(*) as count FROM post').fetchone()['count']
+    total_pages = ceil(total_posts / per_page)
+    
+    # Ensure page is within valid range
+    page = min(max(1, page), total_pages) if total_pages > 0 else 1
+    
+    # Calculate offset
+    offset = (page - 1) * per_page
+    
+    # Get posts for current page
     posts = db.execute(
         'SELECT p.id, title, body, created, author_id, username'
         ' FROM post p JOIN user u ON p.author_id = u.id'
         ' ORDER BY created DESC'
+        ' LIMIT ? OFFSET ?',
+        (per_page, offset)
     ).fetchall()
     
     # Fetch images for each post
@@ -83,7 +99,32 @@ def index():
         ]
         posts_with_images.append(post_dict)
     
-    return render_template('blog/index.html', posts=posts_with_images)
+    return {
+        'posts': posts_with_images,
+        'total_pages': total_pages,
+        'current_page': page,
+        'total_posts': total_posts,
+        'per_page': per_page
+    }
+
+
+# Route handlers
+@bp.route('/')
+def index():
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    
+    posts_data = get_paginated_posts(page=page)
+    
+    return render_template(
+        'blog/index.html',
+        posts=posts_data['posts'],
+        current_page=posts_data['current_page'],
+        total_pages=posts_data['total_pages'],
+        total_posts=posts_data['total_posts']
+    )
 
 
 @bp.route('/<int:id>/view')
@@ -213,6 +254,7 @@ def update(id):
     
     return render_template('blog/update.html', post=post, images=post['images'])
 
+
 @bp.route('/<int:id>/delete', methods=('POST',))
 @login_required
 def delete(id):
@@ -242,6 +284,8 @@ def delete(id):
         
     return redirect(url_for('blog.index'))
 
+
+
 @bp.route('/post/<int:post_id>/comment', methods=['POST'])
 @login_required
 def add_comment(post_id):
@@ -268,6 +312,8 @@ def add_comment(post_id):
         flash('Your comment has been added.', 'success')
     
     return redirect(url_for('blog.view', id=post_id))
+
+
 
 @bp.route('/comment/<int:id>/delete', methods=['POST'])
 @login_required
