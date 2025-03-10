@@ -21,5 +21,20 @@ export default defineConfig({
       '@utils': path.resolve(__dirname, './src/utils'),
       '@styles': path.resolve(__dirname, './src/styles'),
     }
-  }
-})
+  },
+
+  server: {
+ 
+    proxy: {
+  
+      '/api': {
+  
+        target: 'http://localhost:5000/index',
+        changeOrigin: true,
+        secure: false 
+      },
+    },
+  },
+  
+});
+

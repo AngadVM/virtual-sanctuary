@@ -12,6 +12,7 @@ edge-tts = "*"
 pipfile = "*"
 gtts = "*"
 pydub = "*"
+flask-cors = "*"
 
 [dev-packages]
 

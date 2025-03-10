@@ -57,15 +57,62 @@ const Login = () => {
   );
 };
 
-const Explore = () => (
-  <div className="bg-black min-h-screen">
-    <div className="mx-auto max-w-2xl py-32">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-gray-200">Explore Page</h2>
+const Explore = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [result, setResult] = useState(null);
+
+  const handleSearch = async (event) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch("http://localhost:5000/explore", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ location: searchTerm }),
+      });
+
+      const data = await response.json();
+      console.log("Backend Response:", data); // Log response
+
+      setResult(data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSearch} className="max-w-md mx-auto">
+      <label htmlFor="default-search" className="sr-only">
+        Search
+      </label>
+      <div className="relative">
+        <input
+          type="search"
+          id="default-search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="block w-full p-4 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50"
+          placeholder="Search a location..."
+          required
+        />
+        <button
+          type="submit"
+          className="absolute end-2.5 bottom-2.5 bg-blue-700 text-white rounded-lg px-4 py-2"
+        >
+          Search
+        </button>
       </div>
-    </div>
-  </div>
-);
+      {result && (
+        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
+    </form>
+  );
+};
+
 const LearnMore = () => (
   <div className="bg-black min-h-screen">
     <div className="mx-auto max-w-2xl py-32">
