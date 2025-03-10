@@ -12,6 +12,11 @@ edge-tts = "*"
 pipfile = "*"
 gtts = "*"
 pydub = "*"
+google-auth = "*"
+google-auth-oauthlib = "*"
+requests = "*"
+oauthlib = "*"
+bleach = "*"
 flask-cors = "*"
 
 [dev-packages]
