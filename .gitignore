@@ -62,7 +62,7 @@ db.sqlite3
 db.sqlite3-journal
 
 # Flask stuff:
-instance/
+#instance/
 .webassets-cache
 
 # Scrapy stuff:
@@ -174,10 +174,12 @@ cython_debug/
 *.sqlite3
 *.db
 
-# Uploads 
+Uploads 
 App/Blog/static/uploads
 App/Blog/static/profile_images
-db.py
+App/Blog/instance
+App/instance
+App/tests
 
 Temp/Mixed/mixed_output.mp3
 Temp/Normal/main.mp3

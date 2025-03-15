@@ -1,22 +1,42 @@
-import functools
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
-from werkzeug.security import check_password_hash, generate_password_hash
+import functools, json, os, time, requests, re
+from functools import lru_cache, wraps
+from dotenv import load_dotenv
+from flask import Blueprint, redirect, request, url_for, jsonify, flash, current_app
+from flask_login import login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 from Blog.db import get_db
-import re, os, time, requests
-from functools import lru_cache
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 from oauthlib.oauth2 import WebApplicationClient
-import json
+from flask_login import UserMixin
+from Blog import login_manager
+import random
+
+class User(UserMixin):
+    def __init__(self, id, username, email):
+        self.id = id
+        self.username = username
+        self.email = email
+
+    @staticmethod
+    def get(user_id):
+        db = get_db()
+        user = db.execute('SELECT * FROM user WHERE id = ?', (user_id,)).fetchone()
+        if user:
+            return User(user['id'], user['username'], user['email'])
+        return None
+
+    def get_id(self):
+        return str(self.id)
 
 
-UPLOAD_FOLDER = os.path.join('static', 'profile_images')
+
+PROFILE_IMAGE_FOLDER = os.path.join('static', 'profile_images')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 # For development only 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
+load_dotenv()
 # Google OAuth2 config
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
@@ -33,15 +53,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Blueprint for auth
-bp = Blueprint('auth', __name__, url_prefix='/auth')
-
 
 def validate_email(email):
     """Validate email format using regex pattern. """
-    pattern =r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern,email) is not None
-
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
 
 
 def validate_password(password):
@@ -52,22 +68,15 @@ def validate_password(password):
     - Contains at least one lowercase letter
     - Contains at least one number
     """
-
     if len(password) < 8:
         return False
-
     if not any(c.isupper() for c in password):
         return False
-
     if not any(c.islower() for c in password):
         return False
-
     if not any(c.isdigit() for c in password):
         return False
-
-    return True 
-        
-
+    return True
 
 
 class SocialMediaValidator:
@@ -119,386 +128,276 @@ class SocialMediaValidator:
         pattern = r'^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-]{3,100}\/?$'
         return bool(re.match(pattern, url))
 
+    
     @staticmethod
     @lru_cache(maxsize=100)
     def verify_handle_exists(handle, platform):
-        """
-        Verify if the social media handle actually exists.
-        Uses caching to prevent excessive API calls.
-        """
+        """Verify if a social media handle actually exists."""
+        urls = {
+            "twitter": f"https://twitter.com/{handle}",
+            "instagram": f"https://www.instagram.com/{handle}",
+            "linkedin": handle if handle.startswith("https://www.linkedin.com/in/") else None
+        }
+
+        url = urls.get(platform)
+        if not url:
+            return False
+
         try:
-            if platform == 'twitter':
-                url = f"https://twitter.com/{handle}"
-            elif platform == 'instagram':
-                url = f"https://www.instagram.com/{handle}"
-            elif platform == 'linkedin':
-                url = handle
-            
             response = requests.head(url, allow_redirects=True, timeout=5)
-            return response.status_code == 200
-        except:
-            return True  # On error, assume handle exists to avoid blocking valid users
+            return response.status_code in [200, 301, 302]  # Allow redirects
+        except requests.RequestException:
+            return False  # Assume handle doesn't exist if request fails
 
 
 
-# Add Google login routes
+
+# Google login routes
+
 @bp.route('/google-login')
 def google_login():
-    # Find out what URL to hit for Google login
-    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+    try:
+        # Ensure GOOGLE_CLIENT_ID is available
+        if not GOOGLE_CLIENT_ID:
+            return jsonify({"status": "error", "message": "Google OAuth Client ID is missing"}), 500
 
-    # Use library to construct the request for login
-    request_uri = client.prepare_request_uri(
-        authorization_endpoint,
-        redirect_uri=request.base_url + "/callback",
-        scope=["openid", "email", "profile"],
-    )
-    return redirect(request_uri)
+        # Get Google's OAuth 2.0 authorization endpoint
+        google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+        authorization_endpoint = google_provider_cfg.get("authorization_endpoint")
+
+        if not authorization_endpoint:
+            return jsonify({"status": "error", "message": "Failed to retrieve Google OAuth configuration"}), 500
+
+        # Construct request URI for Google login
+        request_uri = client.prepare_request_uri(
+            authorization_endpoint,
+            redirect_uri=url_for("auth.google_callback", _external=True),  
+            scope=["openid", "email", "profile"],
+        )
+
+        return redirect(request_uri)
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"OAuth login failed: {str(e)}"}), 500
 
 
+
+ 
 
 @bp.route('/google-login/callback')
 def google_callback():
     try:
-        # Get authorization code Google sent back
         code = request.args.get("code")
+        if not code:
+            return jsonify({"status": "error", "message": "Missing authorization code"}), 400
+
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
 
-        # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
-            token_endpoint,
-            authorization_response=request.url,
-            redirect_url=request.base_url,
-            code=code
+            token_endpoint, authorization_response=request.url, redirect_url=request.base_url, code=code
         )
 
         token_response = requests.post(
-            token_url,
-            headers=headers,
-            data=body,
-            auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
+            token_url, headers=headers, data=body, auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
         )
 
-        # Parse the tokens
+        if token_response.status_code != 200:
+            return jsonify({"status": "error", "message": "Failed to retrieve access token"}), 500
+
         client.parse_request_body_response(json.dumps(token_response.json()))
-        
-        # Get user info from Google
+
         userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
         uri, headers, body = client.add_token(userinfo_endpoint)
         userinfo_response = requests.get(uri, headers=headers, data=body)
 
-        if userinfo_response.json().get("email_verified"):
-            google_id = userinfo_response.json()["sub"]
-            email = userinfo_response.json()["email"]
-            username = userinfo_response.json().get("given_name", email.split('@')[0])
-        else:
-            flash("Google authentication failed - Email not verified", "error")
-            return redirect(url_for("auth.login"))
+        user_data = userinfo_response.json()
+        if not user_data.get("email_verified"):
+            return jsonify({"status": "error", "message": "Email verification failed"}), 401
 
-        # Check if user exists and handle accordingly
+        email = user_data["email"]
+        username = user_data.get("given_name", email.split('@')[0])
+
         db = get_db()
         user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
 
         if user is None:
-            try:
-                # Create new user
-                google_password = os.urandom(24).hex()
-                db.execute(
-                    "INSERT INTO user (email, username, password, google_id) VALUES (?, ?, ?, ?)",
-                    (email, username, generate_password_hash(google_password), google_id)
-                )
-                db.commit()
-                user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
-                flash('Account created successfully!', 'success')
-            except db.IntegrityError as e:
-                flash('Error creating account. Please try again.', 'error')
-                return redirect(url_for("auth.login"))
+            #  Check if username already exists and make it unique
+            existing_user = db.execute('SELECT * FROM user WHERE username = ?', (username,)).fetchone()
+            if existing_user:
+                username = f"{username}{random.randint(1000, 9999)}"  #  Append random number to make it unique
 
-        # Log in the user
-        session.clear()
-        session['user_id'] = user['id']
-        return redirect(url_for('index'))
+            google_password = os.urandom(24).hex()
+            db.execute(
+                "INSERT INTO user (email, username, password, google_id) VALUES (?, ?, ?, ?)",
+                (email, username, generate_password_hash(google_password), user_data["sub"])
+            )
+            db.commit()
+            user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
+
+        user_obj = User(user['id'], user['username'], user['email'])
+        login_user(user_obj)
+
+        return jsonify({"status": "success", "message": "Login successful", "user_id": user_obj.id}), 200
 
     except Exception as e:
-        flash(f"Authentication error: {str(e)}", "error")
-        return redirect(url_for("auth.login"))
+        return jsonify({"status": "error", "message": f"Authentication error: {str(e)}"}), 500
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(user_id)  #  Load user from database
 
 
 
-# Modify existing register route to handle both traditional and Google sign-up
-@bp.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password']
-        email = request.form['email'].strip().lower()
-        db = get_db()
-        error = None
-
-        # Input validation
-        if not username:
-            error = 'Username is required'
-        elif len(username) < 3:
-            error = 'Username must be at least 3 characters long'
-        elif not password:
-            error = 'Password is required'
-        elif not validate_password(password):
-            error = 'Password must be at least 8 characters and contain uppercase, lowercase, and numbers'
-        elif not email:
-            error = 'Email is required'
-        elif not validate_email(email):
-            error = 'Invalid email format'
-
-        if error is None:
-            try:
-                existing_email = db.execute(
-                    'SELECT id FROM user WHERE email = ?', (email,)
-                ).fetchone()
-                if existing_email:
-                    error = 'Email already registered'
-                else:
-                    db.execute(
-                        "INSERT INTO user (email, username, password) VALUES (?, ?, ?)",
-                        (email, username, generate_password_hash(password))
-                    )
-                    db.commit()
-                    flash('Registration successful! Please log in.', 'success')
-                    return redirect(url_for("auth.login"))
-            except db.IntegrityError:
-                error = f"User {username} is already registered."
-        flash(error, 'error')
-
-    return render_template('auth/register.html')
-
-# Keep the rest of your existing code...
-
-
-
-@bp.route('/login', methods = ['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        identifier = request.form['identifier'].strip() # Can be username or email
-        password = request.form['password']
-
-        db = get_db()
-        error = None
-
-        # Check if identifier is email or username
-        if '@' in identifier:
-            user = db.execute(
-                'SELECT * FROM user WHERE email = ?', (identifier.lower(),)
-            ).fetchone()
-        else:
-            user = db.execute(
-                'SELECT * FROM user WHERE username = ?', (identifier,)
-            ).fetchone()
-
-        if user is None:
-            error = 'Incorrect credentials'
-        elif not check_password_hash(user['password'], password):
-            error = 'Invalid credentials'
-
-
-        if error is None:
-            session.clear()
-            session['user_id'] = user['id']
-            return redirect(url_for('index'))
-    
-        flash(error)
-
-    return render_template('auth/login.html')
-
-
-@bp.before_app_request
-def load_logged_in_user():
-    user_id = session.get('user_id')
-
-    if user_id is None:
-        g.user = None
-    else:
-        g.user = get_db().execute(
-                'SELECT * FROM user WHERE id = ?', (user_id,)
-        ).fetchone()
-
-# Logout
 
 @bp.route('/logout')
 def logout():
-    session.clear()
-    return redirect(url_for('index'))
+    print(f" Logging out user: {current_user.id}")  # Debugging
+    logout_user()
+    return jsonify({"status": "success", "message": "Logged out successfully"}), 200
 
-# to check if user is logged in before crud operations are performed on the post
+
+
 
 def login_required(view):
-    @functools.wraps(view)
-    def wrapped_view(**kwargs):
-        if g.user is None:
-            return redirect(url_for('auth.login'))
-        return view(**kwargs)
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        print(f"🔍 DEBUG: current_user.is_authenticated = {current_user.is_authenticated}")  #  Debugging
+        if not current_user.is_authenticated:
+            return jsonify({"status": "error", "message": "Authentication required"}), 401
+        return view(*args, **kwargs)
 
     return wrapped_view
 
 
 
-@bp.route('/profile/<int:user_id>')
-@bp.route('/profile', defaults={'user_id': None})
+@bp.route('/profile', methods=['GET'])
 @login_required
-def profile(user_id=None):
-    db = get_db()
-    
-    if user_id is None:
-        user_id = g.user['id']
-        
-    user = db.execute(
-        'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
-        'FROM user WHERE id = ?',
-        (user_id,)
-    ).fetchone()
-    
-    if user is None:
-        abort(404)
-        
-    is_own_profile = g.user['id'] == user_id
+def profile():
+    try:
+        # Debugging: Check if current_user is set
+        if not current_user.is_authenticated:
+            return jsonify({"status": "error", "message": "User not authenticated"}), 401
 
-    posts = db.execute(
-        '''SELECT p.id, title, body, created, author_id, username
-           FROM post p JOIN user u ON p.author_id = u.id
-           WHERE u.id = ?
-           ORDER BY created DESC''',
-        (user_id,)
-    ).fetchall()
+        db = get_db()
+        user = db.execute(
+            'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
+            'FROM user WHERE id = ?',
+            (current_user.id,)
+        ).fetchone()
 
-    return render_template('auth/profile.html', user=user, posts=posts, is_own_profile=is_own_profile)
+        if user is None:
+            return jsonify({"status": "error", "message": "User not found"}), 404
 
+        user_dict = dict(user)
+        user_dict.pop('password', None)
 
+        return jsonify({
+            "status": "success",
+            "user": user_dict
+        }), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@bp.route('/profile/edit', methods=['GET', 'POST'])
+
+@bp.route('/profile/edit', methods=['POST'])
 @login_required
 def edit_profile():
-    from flask import current_app
-    
     db = get_db()
     user = db.execute(
         'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
         'FROM user WHERE id = ?',
-        (g.user['id'],)
+        (current_user.id,)
     ).fetchone()
 
+    if request.method == 'GET':
+        user_dict = dict(user)
+        return jsonify({"status": "success", "user": user_dict}), 200
+
     if request.method == 'POST':
-        # Get form data
-        username = request.form.get('username', '').strip()
-        current_password = request.form.get('current_password', '')
-        new_password = request.form.get('new_password', '')
-        about = request.form.get('about', '').strip()
-        twitter = request.form.get('twitter_handle', '').strip()
-        instagram = request.form.get('instagram_handle', '').strip()
-        linkedin = request.form.get('linkedin_url', '').strip()
-        
+        # Parse JSON data if request is application/json
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+
+        username = data.get('username', '').strip()
+        about = data.get('about', '').strip()
+        twitter = data.get('twitter_handle', '').strip()
+        instagram = data.get('instagram_handle', '').strip()
+        linkedin = data.get('linkedin_url', '').strip()
+
         error = None
         updates = {}
-        
+
         # Username validation
         if username and username != user['username']:
             if len(username) < 3:
-                error = 'Username must be at least 3 characters long'
+                return jsonify({"status": "error", "message": "Username must be at least 3 characters long"}), 400
             else:
-                # Check if username is already taken
                 existing_user = db.execute(
                     'SELECT id FROM user WHERE username = ? AND id != ?',
-                    (username, g.user['id'])
+                    (username, current_user.id)
                 ).fetchone()
                 if existing_user:
-                    error = 'Username already taken'
-                else:
-                    updates['username'] = username
-
-        # Password validation
-        if current_password and new_password:
-            if not check_password_hash(user['password'], current_password):
-                error = 'Current password is incorrect'
-            elif not validate_password(new_password):
-                error = 'New password must be at least 8 characters and contain uppercase, lowercase, and numbers'
-            else:
-                updates['password'] = generate_password_hash(new_password)
+                    return jsonify({"status": "error", "message": "Username already taken"}), 400
+                updates['username'] = username
 
         # Social media validation
         validator = SocialMediaValidator()
 
-        # Validate Twitter handle
         if twitter:
             twitter = validator.clean_handle(twitter, 'twitter')
             if not validator.validate_twitter(twitter):
-                error = "Invalid Twitter handle format"
-            elif not validator.verify_handle_exists(twitter, 'twitter'):
-                error = "Twitter handle does not exist"
+                return jsonify({"status": "error", "message": "Invalid Twitter handle format"}), 400
             updates['twitter_handle'] = f'@{twitter}'
 
-        # Validate Instagram handle
         if instagram:
             instagram = validator.clean_handle(instagram, 'instagram')
             if not validator.validate_instagram(instagram):
-                error = "Invalid Instagram handle format"
-            elif not validator.verify_handle_exists(instagram, 'instagram'):
-                error = "Instagram handle does not exist"
+                return jsonify({"status": "error", "message": "Invalid Instagram handle format"}), 400
             updates['instagram_handle'] = instagram
 
-        # Validate LinkedIn URL
         if linkedin:
             if not validator.validate_linkedin_url(linkedin):
-                error = "Invalid LinkedIn URL format"
-            elif not validator.verify_handle_exists(linkedin, 'linkedin'):
-                error = "LinkedIn profile URL does not exist"
+                return jsonify({"status": "error", "message": "Invalid LinkedIn URL format"}), 400
             updates['linkedin_url'] = linkedin
 
-        # Handle profile image upload
-        if 'profile_image' in request.files:
-            file = request.files['profile_image']
-            if file and file.filename != '':
-                if not allowed_file(file.filename):
-                    error = f"Invalid file type. Allowed types are: {', '.join(ALLOWED_EXTENSIONS)}"
-                else:
-                    try:
-                        # Delete old profile image if it exists
-                        if user['profile_image']:
-                            old_image_path = os.path.join(current_app.root_path, 'static', user['profile_image'])
-                            if os.path.exists(old_image_path):
-                                os.remove(old_image_path)
-                        
-                        # Save new profile image
-                        upload_folder = os.path.join(current_app.root_path, 'static', 'profile_images')
-                        timestamp = int(time.time())
-                        filename = f"{timestamp}_{secure_filename(file.filename)}"
-                        file_path = os.path.join(upload_folder, filename)
-                        file.save(file_path)
-                        updates['profile_image'] = os.path.join('profile_images', filename)
-                    except Exception as e:
-                        error = f"Error saving profile image: {str(e)}"
-                        print(f"File upload error: {str(e)}")
-
-        # Update about text if changed
-        if about != user['about']:
+        # Update 'about' section
+        if about and about != user['about']:
             updates['about'] = about
 
-        if error is None and updates:
-            try:
-                # Build dynamic UPDATE query based on changed fields
-                update_fields = ', '.join([f"{key} = ?" for key in updates.keys()])
-                query = f'UPDATE user SET {update_fields} WHERE id = ?'
-                
-                # Execute update with dynamic parameters
-                db.execute(query, (*updates.values(), g.user['id']))
-                db.commit()
-                
-                flash('Profile updated successfully!', 'success')
-                return redirect(url_for('auth.profile'))
-            except db.Error as e:
-                error = f"Error updating profile: {str(e)}"
-                print(f"Database error: {str(e)}")
-        
-        if error:
-            flash(error, 'error')
+      
+        # Profile image upload handling
+        if 'profile_image' in request.files:
+            file = request.files['profile_image']
 
-    return render_template('auth/edit_profile.html', user=user)
+            if file.filename == '':  # Check if file is empty
+                return jsonify({"status": "error", "message": "No file selected"}), 400
+
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+
+                # Ensure the upload directory exists
+                profile_folder = current_app.config.get('PROFILE_IMAGE_FOLDER', 'static/profile_images')
+                os.makedirs(profile_folder, exist_ok=True)
+
+                filepath = os.path.join(profile_folder, filename)
+                file.save(filepath)
+
+                # Store relative path for easy retrieval
+                updates['profile_image'] = f"/static/profile_images/{filename}"
+            else:
+                return jsonify({"status": "error", "message": "Invalid file format. Allowed formats: png, jpg, jpeg, gif"}), 400
+         # Apply updates if there are any changes
+        if updates:
+            query = "UPDATE user SET " + ", ".join(f"{key} = ?" for key in updates.keys()) + " WHERE id = ?"
+            values = list(updates.values()) + [current_user.id]
+            db.execute(query, values)
+            db.commit()
+
+        return jsonify({"status": "success", "message": "Profile updated successfully"}), 200
+

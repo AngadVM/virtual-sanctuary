@@ -17,7 +17,20 @@ google-auth-oauthlib = "*"
 requests = "*"
 oauthlib = "*"
 bleach = "*"
+
 flask-cors = "*"
+
+pandas = "*"
+numpy = "*"
+folium = "*"
+ipython = "*"
+plotly = "*"
+fireducks = "*"
+pytest = "*"
+pytest-flask = "*"
+flask-session = "*"
+flask-cors = "*"
+flask-login = "*"
 
 [dev-packages]
 
