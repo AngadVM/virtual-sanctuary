@@ -6,10 +6,18 @@ import blogsFrame from "@assets/blogsFrame.svg"
 import galleryImage from "@assets/galleryImage.svg"
 
 
+const scrollToAbout = (e) => {
+  e.preventDefault();
+  const aboutSection = document.querySelector('.about');
+  if (aboutSection) {
+    aboutSection.scrollIntoView({ behavior: 'smooth' });
+  }
+};
+
 export default function MainContent() {
   return (
     
-      <div className="about">
+      <div>
         <div className="bg-black">
           <div className="mx-auto max-w-2xl px-6 lg:max-w-7xl lg:px-8 items-center justify-center">
             <p className="py-1 text-gray-500 italic">what do we got here?</p>

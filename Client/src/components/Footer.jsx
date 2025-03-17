@@ -1,6 +1,14 @@
 import React from "react";
 import tvsFullLogo from "@assets/tvs-full-logo.svg";
 
+const scrollToAbout = (e) => {
+  e.preventDefault();
+  const aboutSection = document.querySelector('.about');
+  if (aboutSection) {
+    aboutSection.scrollIntoView({ behavior: 'smooth' });
+  }
+};
+
 function Footer() {
   return (
     <div>
@@ -15,23 +23,23 @@ function Footer() {
             </a>
             <ul class="flex flex-wrap items-center mb-6 text-sm font-medium text-gray-500 sm:mb-0 dark:text-gray-400">
               <li>
-                <a href="#" class="hover:underline me-4 md:me-6">
+                <a href="#about" onClick={scrollToAbout} class="hover:underline me-4 md:me-6">
                   About
                 </a>
               </li>
               <li>
                 <a href="#" class="hover:underline me-4 md:me-6">
-                  Privacy Policy
+                  Contact Support
                 </a>
               </li>
               <li>
-                <a href="#" class="hover:underline me-4 md:me-6">
-                  Licensing
+                <a href="/references" class="hover:underline me-4 md:me-6">
+                  References
                 </a>
               </li>
               <li>
-                <a href="#" class="hover:underline">
-                  Contact
+                <a href="/register" class="hover:underline">
+                  Register
                 </a>
               </li>
             </ul>
