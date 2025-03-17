@@ -1,14 +1,86 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import "@pages/GalleryPage.css";
+import viewIcon from "@/assets/view-icon.svg";
 
 function GalleryPage() {
+  const [query, setQuery] = useState("koala");
+  const [loading, setLoading] = useState();
+  const [data, setData] = useState([]);
+
+  const apiKey = import.meta.env.VITE_PEXELS_KEY;
+  const getPictures = async () => {
+    setLoading(true);
+    await fetch(`https://api.pexels.com/v1/search?query=${query}`, {
+      headers: {
+        Authorization: apiKey,
+      },
+    })
+      .then((resp) => {
+        return resp.json();
+      })
+      .then((res) => {
+        setLoading(false);
+        setData(res.photos);
+      });
+  };
+
+  useEffect(() => {
+    getPictures();
+  }, []);
+
+  const onKeyDownHandler = (e) => {
+    if (e.keyCode === 13) {
+      getPictures();
+    }
+  };
+
   return (
-    <div className="bg-black min-h-screen">
-      <div className="mx-auto max-w-2xl py-32">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-200">Gallery Page</h2>
+    <>
+      {/* <div>API key: {apiKey}</div> */}
+      <div>
+        <div className="header">
+          <div className="block text-4xl font-light">
+            Explore a World of
+            <span className="gradient font-extrabold">
+              {" "}
+              Wildlife and Flora
+            </span>{" "}
+            in through Stunning Images
+          </div>
+          <div className=" text-lg">
+            <input
+              className="inputSearch   min-h-10 p-2 m-2 mt-7 rounded-md text-gray-700"
+              onKeyDown={onKeyDownHandler}
+              placeholder="Search for Anything..."
+              onSubmit={(e) => setQuery(e.target.value)}
+              value={query}
+            ></input>
+          </div>
+        </div>
+
+        {loading && <h2></h2>}
+
+        <div className="gallery mt-10">
+          {data?.map((item, index) => {
+            return (
+              <div className="gallery-item ">
+                <img src={item.src.medium} alt="" />
+                <span>
+                  <a
+                    href={item.src.original}
+                    download
+                    className="download-button"
+                    target="_blank"
+                  >
+                    <img src={viewIcon} className="view-icon" />
+                  </a>
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
