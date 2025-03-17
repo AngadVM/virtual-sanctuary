@@ -57,12 +57,18 @@ const Login = () => {
   );
 };
 
+
 const Explore = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [activeSpecies, setActiveSpecies] = useState(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioSrc, setAudioSrc] = useState(null);
 
   const handleSearch = async (event) => {
     event.preventDefault();
+    setLoading(true);
 
     try {
       const response = await fetch("http://localhost:5000/explore", {
@@ -74,44 +80,275 @@ const Explore = () => {
       });
 
       const data = await response.json();
-      console.log("Backend Response:", data); // Log response
+      console.log("Backend Response:", data);
 
       setResult(data);
+      setActiveSpecies(null);
+      setAudioSrc(null);
     } catch (error) {
       console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateAudio = async (species, narrative, audioFiles) => {
+    setAudioLoading(true);
+    
+    try {
+      const response = await fetch("http://localhost:5000/generate-audio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          species,
+          narrative,
+          audio_files: audioFiles
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.audio_path) {
+        setAudioSrc(`http://localhost:5000${data.audio_path}`);
+      }
+    } catch (error) {
+      console.error("Error generating audio:", error);
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const handleSpeciesSelect = (speciesName) => {
+    setActiveSpecies(speciesName);
+    setAudioSrc(null);
+    
+    // If this species has a narrative and audio data, generate the audio
+    if (result?.species_data[speciesName]) {
+      const speciesData = result.species_data[speciesName];
+      if (speciesData.narrative && speciesData.audio) {
+        generateAudio(speciesName, speciesData.narrative, speciesData.audio);
+      }
     }
   };
 
   return (
-    <form onSubmit={handleSearch} className="max-w-md mx-auto">
-      <label htmlFor="default-search" className="sr-only">
-        Search
-      </label>
-      <div className="relative">
-        <input
-          type="search"
-          id="default-search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full p-4 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50"
-          placeholder="Search a location..."
-          required
-        />
-        <button
-          type="submit"
-          className="absolute end-2.5 bottom-2.5 bg-blue-700 text-white rounded-lg px-4 py-2"
-        >
-          Search
-        </button>
+    <div className="min-h-screen bg-black text-gray-200">
+      {/* Header with logo */}
+      <header className="bg-black p-4 flex items-center">
+        <Link to="/" className="flex items-center">
+          <img src={virtuaryLogo} alt="Virtual Sanctuary" className="h-10" />
+        </Link>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-center mb-8">
+          Explore Wildlife Virtually
+        </h1>
+
+        {/* Search form */}
+        <form onSubmit={handleSearch} className="max-w-md mx-auto mb-12">
+          <label htmlFor="location-search" className="block mb-2 text-lg">
+            Search a location to discover its wildlife:
+          </label>
+          <div className="relative">
+            <input
+              type="search"
+              id="location-search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full p-4 ps-4 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50"
+              placeholder="Try 'Yellowstone National Park', 'Amazon Rainforest', 'Serengeti'..."
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="absolute end-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-4 py-2 disabled:bg-blue-400"
+            >
+              {loading ? "Searching..." : "Explore"}
+            </button>
+          </div>
+        </form>
+
+        {/* Results section */}
+        {result && result.species_data && (
+          <div className="mt-10">
+            <h2 className="text-2xl font-semibold mb-6">
+              Wildlife in {searchTerm}
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {/* Species cards */}
+              {Object.entries(result.species_data).map(([species, data]) => (
+                <div 
+                  key={species}
+                  className={`bg-gray-800 rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-105 ${activeSpecies === species ? 'ring-2 ring-blue-500' : ''}`}
+                  onClick={() => handleSpeciesSelect(species)}
+                >
+                  <div className="h-48 overflow-hidden">
+                    {data.images && data.images.length > 0 ? (
+                      <img 
+                        src={data.images[0]} 
+                        alt={species} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                        <span>No image available</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-xl font-bold mb-2">{species}</h3>
+                    {data.inaturalist && typeof data.inaturalist === 'object' && (
+                      <p className="text-sm text-gray-400 mb-2">
+                        {data.inaturalist.scientific_name || 'Scientific name not available'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Selected species details */}
+            {activeSpecies && result.species_data[activeSpecies] && (
+              <div className="mt-12 bg-gray-800 rounded-lg p-6">
+                <div className="flex flex-col md:flex-row gap-8">
+                  {/* Image gallery */}
+                  <div className="md:w-1/3">
+                    <div className="bg-black rounded-lg overflow-hidden h-64 mb-4">
+                      {result.species_data[activeSpecies].images && 
+                       result.species_data[activeSpecies].images.length > 0 ? (
+                        <img 
+                          src={result.species_data[activeSpecies].images[0]} 
+                          alt={activeSpecies} 
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span>No image available</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Image thumbnails */}
+                    {result.species_data[activeSpecies].images && 
+                     result.species_data[activeSpecies].images.length > 1 && (
+                      <div className="grid grid-cols-4 gap-2">
+                        {result.species_data[activeSpecies].images.slice(0, 4).map((img, idx) => (
+                          <div key={idx} className="h-16 bg-black rounded overflow-hidden">
+                            <img 
+                              src={img} 
+                              alt={`${activeSpecies} ${idx+1}`} 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Info and narrative */}
+                  <div className="md:w-2/3">
+                    <div className="flex items-baseline justify-between mb-4">
+                      <h2 className="text-3xl font-bold">{activeSpecies}</h2>
+                      {result.species_data[activeSpecies].inaturalist && 
+                       typeof result.species_data[activeSpecies].inaturalist === 'object' && (
+                        <span className="text-lg italic text-gray-400">
+                          {result.species_data[activeSpecies].inaturalist.scientific_name}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Conservation status */}
+                    {result.species_data[activeSpecies].inaturalist && 
+                     typeof result.species_data[activeSpecies].inaturalist === 'object' && 
+                     result.species_data[activeSpecies].inaturalist.conservation_status !== 'N/A' && (
+                      <div className="mb-4">
+                        <span className="inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                          {result.species_data[activeSpecies].inaturalist.conservation_status}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Wikipedia summary */}
+                    {result.species_data[activeSpecies].wikipedia && (
+                      <div className="mb-6">
+                        <h3 className="text-xl font-semibold mb-2">About</h3>
+                        <p className="text-gray-300">
+                          {result.species_data[activeSpecies].wikipedia}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Narrative */}
+                    {result.species_data[activeSpecies].narrative && (
+                      <div className="mb-6">
+                        <h3 className="text-xl font-semibold mb-2">Narration by David Attenborough</h3>
+                        <div className="bg-gray-900 p-4 rounded-lg">
+                          <p className="text-gray-300 italic">
+                            {result.species_data[activeSpecies].narrative}
+                          </p>
+                        </div>
+                        
+                        {/* Audio player */}
+                        <div className="mt-4">
+                          {audioLoading ? (
+                            <div className="flex items-center text-blue-400">
+                              <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Preparing audio narration...
+                            </div>
+                          ) : audioSrc ? (
+                            <div>
+                              <h4 className="text-lg font-medium mb-2">Listen to Narration:</h4>
+                              <audio controls className="w-full">
+                                <source src={audioSrc} type="audio/mpeg" />
+                                Your browser does not support the audio element.
+                              </audio>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => generateAudio(
+                                activeSpecies, 
+                                result.species_data[activeSpecies].narrative,
+                                result.species_data[activeSpecies].audio
+                              )}
+                              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+                            >
+                              Generate Audio Narration
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Observations count */}
+                    {result.species_data[activeSpecies].inaturalist && 
+                     typeof result.species_data[activeSpecies].inaturalist === 'object' && 
+                     result.species_data[activeSpecies].inaturalist.observations_count !== 'N/A' && (
+                      <div className="mb-4">
+                        <h3 className="text-xl font-semibold mb-2">Observations</h3>
+                        <p className="text-gray-300">
+                          This species has been observed {result.species_data[activeSpecies].inaturalist.observations_count} times on iNaturalist.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      {result && (
-        <div className="mt-4 p-4 bg-gray-100 rounded-md">
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-        </div>
-      )}
-    </form>
+    </div>
   );
 };
+
 
 const LearnMore = () => (
   <div className="bg-black min-h-screen">

@@ -81,6 +81,26 @@ def combine():
         print(f"Error: {str(e)}")
 
 
+import requests
+
+def download_audio(url, save_path):
+    """
+    Download audio file from a URL
+    """
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        
+        with open(save_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        
+        return True
+    except Exception as e:
+        print(f"Error downloading audio: {e}")
+        return False
+
+
 if __name__ == "__main__":
    
     combine()
