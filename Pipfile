@@ -18,6 +18,7 @@ requests = "*"
 oauthlib = "*"
 bleach = "*"
 flask-cors = "*"
+aiofiles = "*"
 
 [dev-packages]
 

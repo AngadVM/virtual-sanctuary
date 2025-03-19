@@ -12,7 +12,7 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 
 def narrate(name: str) -> str:
 
-    response = model.generate_content(f"Acting as David Attenborough, narrate the life of {name} without any markdown formatting")
+    response = model.generate_content(f"Acting as David Attenborough, narrate the life of {name} without any markdown formatting. Do not mention where the specie stays or is found.")
 
     return response.text
 

@@ -1,110 +1,123 @@
+from functools import lru_cache
+from flask import Flask, request, jsonify, send_from_directory, Response
+from flask_cors import CORS
+import json
+import concurrent.futures
+import time
+
 from Modules.llm import narrate
 from Modules.news import get_news_rss
-from Modules.aud import combine
+from Modules.aud import process_audio
 from Modules.animals import API_Response
-from flask import Flask, request, jsonify, send_from_directory
-from Modules.tts import speak
-from flask_cors import CORS
-import asyncio
-import os
-import requests
 
+from pydub import AudioSegment
+import os
+import random
+from pathlib import Path
+import asyncio
+import aiohttp
+import tempfile
+import uuid
+import shutil
 
 app = Flask(__name__)
 CORS(app)
 
+# Thread pool for CPU-bound tasks
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
-@app.route("/explore", methods=["POST", "GET"]) 
-def index():
-    if request.method == "POST":
-        location = request.json.get('location')
-        
-        if not location:
-            return jsonify({"error": "Location not provided"}), 400
-        
+@lru_cache(maxsize=100)
+def get_cached_narrative(species_name):
+    """Fetch and cache the narrative for a species"""
+    return narrate(species_name)
+
+def stream_species_data(species_data):
+    """Generator function to stream species JSON one by one, including audio and news."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    for species_name, data in species_data.items():
         try:
-            result = asyncio.run(API_Response(location))
+            # Generate and cache narrative
+            narrative = get_cached_narrative(species_name)
+            data['narrative'] = narrative
+
+            # Process audio asynchronously
+            audio_files = data.get('audio', [])
             
-            if "error" in result:
-                print("Backend Error Response:", result)
-                return jsonify(result), 404
+            # Process audio and ensure we get a valid output filename
+            output_filename = loop.run_until_complete(process_audio(narrative, audio_files))
             
-            # Process narratives for each species
-            for species_name, data in result['species_data'].items():
-                # Generate narrative using LLM
-                narrative = narrate(species_name)
-                data['narrative'] = narrative
-                
-                # We'll handle audio generation in a separate endpoint
-                
-            print("Backend Success Response:", result)
-            return jsonify(result)
+            if output_filename:
+                # Make sure the path is properly formatted for the frontend
+                audio_path = f"/audio/{output_filename}"
+                data['audio_path'] = audio_path
+                print(f"Added audio path: {audio_path} for species: {species_name}")
+            else:
+                # Log the error and include an empty path
+                print(f"Failed to generate audio for {species_name}")
+                data['audio_path'] = ""
+
+            # Fetch news articles
+            news_articles = get_news_rss(species_name)
+            data['news'] = news_articles
+
+            # Convert to JSON and stream in formatted manner
+            json_data = json.dumps({species_name: data}, indent=4)
+            
+            # Debug: Check if audio_path is in the JSON data
+            if 'audio_path' not in data:
+                print(f"Warning: audio_path is missing for {species_name}")
+            
+            yield f"data: {json_data}\n\n"
+            time.sleep(0.5)  # Reduced delay for faster streaming
 
         except Exception as e:
-            error_msg = {'error': f'An error occurred: {str(e)}'}
-            print("Backend Exception:", error_msg)
-            return jsonify(error_msg), 500
+            print(f"Error streaming data for {species_name}: {str(e)}")
+            error_data = json.dumps({'error': f"Error processing {species_name}: {str(e)}"}, indent=4)
+            yield f"data: {error_data}\n\n"
 
-@app.route("/generate-audio", methods=["POST"])
-def generate_audio():
+@app.route("/explore", methods=["POST"]) 
+def explore():
+    """Handles species retrieval based on location and streams the response."""
+    location = request.json.get('location')
+    
+    if not location:
+        return jsonify({"error": "Location not provided"}), 400
+    
     try:
-        species = request.json.get('species')
-        narrative = request.json.get('narrative')
+        start_time = time.time()
+        result = asyncio.run(API_Response(location))  # Fetch species data
+        api_time = time.time() - start_time
+        print(f"API Response time: {api_time:.2f} seconds")
         
-        if not species or not narrative:
-            return jsonify({"error": "Species name or narrative missing"}), 400
-        
-        # Create directories if they don't exist
-        os.makedirs("./Temp/Normal", exist_ok=True)
-        os.makedirs("./Temp/Mixed", exist_ok=True)
-        os.makedirs("./Temp/Background", exist_ok=True)
-        
-        # Generate TTS for the narrative
-        speak(narrative)
-        
-        # Mix with animal sounds (if available)
-        audio_files = request.json.get('audio_files', [])
-        if audio_files:
-            # Download the first audio file from Xeno-canto
-            audio_url = audio_files[0].get('url')
-            # You'll need to implement a function to download the audio file
-            download_audio(audio_url, "./Temp/Background/animal.mp3")
-            
-        # Combine audio
-        combine()
-        
-        # Return the path or serve the file
-        return jsonify({"audio_path": "/audio/mixed_output.mp3"})
-        
+        if "error" in result:
+            return jsonify(result), 404
+
+        return Response(stream_species_data(result["species_data"]), mimetype="text/event-stream")
+
     except Exception as e:
-        return jsonify({"error": f"Audio generation failed: {str(e)}"}), 500
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 @app.route("/audio/<filename>")
 def serve_audio(filename):
-    return send_from_directory("./Temp/Mixed", filename)
+    """Serve audio files with improved error handling."""
+    audio_dir = "./Temp/Mixed"
+    
+    # Verify the file exists
+    file_path = os.path.join(audio_dir, filename)
+    if not os.path.isfile(file_path):
+        print(f"Audio file not found: {file_path}")
+        return jsonify({"error": "Audio file not found"}), 404
+    
+    # Log successful audio requests
+    print(f"Serving audio file: {filename}")
+    return send_from_directory(audio_dir, filename)
 
 
-def download_audio(url, save_path):
-    """
-    Download audio file from a URL and save it.
-    """
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
-        with open(save_path, 'wb') as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-        
-        return True
-    except requests.exceptions.RequestException as e:
-        print(f"Error downloading audio: {e}")
-        return False
-
+@app.route("/api/health")
+def health_check():
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
-
-    app.run(debug=True)
+    app.run(debug=True, threaded=True)
