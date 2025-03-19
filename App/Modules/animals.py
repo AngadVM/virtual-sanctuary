@@ -5,9 +5,12 @@ import re
 from functools import lru_cache
 from geopy.geocoders import Nominatim
 from math import cos, radians
+import time
 
-@lru_cache(maxsize=128)
-def geocode(address: str, length: int = 50) -> tuple:
+# Increased cache size for geocoding
+@lru_cache(maxsize=256)
+def geocode(address: str, length: int = 100) -> tuple:
+    """Geocode an address and calculate a bounding box"""
     geolocator = Nominatim(user_agent="The-Virtual-Sanctuary")
     location = geolocator.geocode(address)
 
@@ -24,10 +27,20 @@ def geocode(address: str, length: int = 50) -> tuple:
     
     return None
 
+# Cache Wikipedia summaries to avoid duplicate lookups
+wikipedia_cache = {}
+# Cache iNaturalist data
+inaturalist_cache = {}
+
 async def fetch_wikipedia(session, species):
+    """Fetch a summary from Wikipedia for the given species"""
+    # Check cache first
+    if species in wikipedia_cache:
+        return wikipedia_cache[species]
+    
     wiki_url = f"https://en.wikipedia.org/wiki/{species.replace(' ', '_')}"
     try:
-        async with session.get(wiki_url) as wiki_response:
+        async with session.get(wiki_url, timeout=5) as wiki_response:
             if wiki_response.status == 200:
                 soup = BeautifulSoup(await wiki_response.text(), 'html.parser')
                 paragraphs = soup.find_all('p')
@@ -35,35 +48,53 @@ async def fetch_wikipedia(session, species):
                     if p.find('b'):
                         summary = re.sub(r'\[\d+\]', '', p.text)
                         sentences = summary.split('. ')[:3]
-                        return '. '.join(sentences) + '.'
+                        result = '. '.join(sentences) + '.'
+                        # Cache the result
+                        wikipedia_cache[species] = result
+                        return result
     except Exception as e:
         print(f"Error fetching Wikipedia data: {e}")
-    return "No Wikipedia summary found"
+    
+    result = "No Wikipedia summary found"
+    wikipedia_cache[species] = result
+    return result
 
 async def fetch_inaturalist(session, species):
+    """Fetch data from iNaturalist API for the given species"""
+    # Check cache first
+    if species in inaturalist_cache:
+        return inaturalist_cache[species]
+    
     inaturalist_url = f"https://api.inaturalist.org/v1/taxa?q={species}"
     try:
-        async with session.get(inaturalist_url) as inat_response:
+        async with session.get(inaturalist_url, timeout=5) as inat_response:
             if inat_response.status == 200:
                 inat_data = await inat_response.json()
                 if inat_data['results']:
                     result = inat_data['results'][0]
-                    return {
+                    data = {
                         'name': result.get('preferred_common_name', species),
                         'scientific_name': result.get('name', 'N/A'),
                         'observations_count': result.get('observations_count', 'N/A'),
                         'conservation_status': result.get('conservation_status', {}).get('status', 'N/A'),
                         'wikipedia_url': result.get('wikipedia_url', 'N/A')
                     }
+                    # Cache the result
+                    inaturalist_cache[species] = data
+                    return data
     except Exception as e:
         print(f"Error fetching iNaturalist data: {e}")
-    return "No iNaturalist data found"
+    
+    result = "No iNaturalist data found"
+    inaturalist_cache[species] = result
+    return result
 
 async def fetch_audio(session, species):
+    """Fetch audio recordings from Xeno-canto API for the given species"""
     xeno_canto_url = f"https://www.xeno-canto.org/api/2/recordings?query={species}"
     audio_list = []
     try:
-        async with session.get(xeno_canto_url) as xc_response:
+        async with session.get(xeno_canto_url, timeout=10) as xc_response:
             if xc_response.status == 200:
                 xc_data = await xc_response.json()
                 recordings = xc_data.get('recordings', [])
@@ -82,12 +113,18 @@ async def fetch_audio(session, species):
     return audio_list
 
 async def fetch_species_data(session, species):
+    """Fetch all data for a species in parallel"""
     tasks = [
         fetch_wikipedia(session, species),
         fetch_inaturalist(session, species),
         fetch_audio(session, species)
     ]
-    wikipedia_summary, inaturalist_data, audio_data = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Handle any exceptions in the results
+    wikipedia_summary = results[0] if not isinstance(results[0], Exception) else "Error fetching Wikipedia data"
+    inaturalist_data = results[1] if not isinstance(results[1], Exception) else "Error fetching iNaturalist data"
+    audio_data = results[2] if not isinstance(results[2], Exception) else []
 
     return {
         "wikipedia": wikipedia_summary,
@@ -96,6 +133,7 @@ async def fetch_species_data(session, species):
     }
 
 async def fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n=8):
+    """Fetch species data from GBIF API within the given geographic bounds"""
     gbif_url = "https://api.gbif.org/v1/occurrence/search"
     params = {
         'decimalLatitude': f'{min_lat},{max_lat}',
@@ -106,50 +144,83 @@ async def fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n=8):
         'mediaType': 'StillImage'
     }
 
+    start_time = time.time()
     async with aiohttp.ClientSession() as session:
-        async with session.get(gbif_url, params=params) as response:
-            if response.status == 200:
-                results = await response.json()
-                excluded_groups = {
-                    'Fungi', 'Bacteria', 'Protista', 'Insecta', 'Arachnida', 
-                    'Mollusca', 'Annelida', 'Nematoda', 'Platyhelminthes', 
-                    'Plankton', 'Cestoda', 'Trematoda', 'Gastropoda', 'Bivalvia'
-                }
+        # Use a semaphore to limit concurrent API calls
+        semaphore = asyncio.Semaphore(10)
+        
+        async def fetch_with_timeout(url, params):
+            async with semaphore:
+                try:
+                    async with session.get(url, params=params, timeout=15) as response:
+                        return await response.json() if response.status == 200 else None
+                except Exception as e:
+                    print(f"Error fetching from GBIF: {e}")
+                    return None
+        
+        results = await fetch_with_timeout(gbif_url, params)
+        if not results:
+            return {}
+        
+        excluded_groups = {
+            'Fungi', 'Bacteria', 'Protista', 'Insecta', 'Arachnida', 
+            'Mollusca', 'Annelida', 'Nematoda', 'Platyhelminthes', 
+            'Plankton', 'Cestoda', 'Trematoda', 'Gastropoda', 'Bivalvia'
+        }
 
-                species_data = {}
-                tasks = []
-                for result in results.get('results', []):
-                    taxon_class = result.get('class')
-                    if 'species' in result and taxon_class not in excluded_groups:
-                        species_name = result['species']
-                        media = result.get('media', [])
-                        media_urls = [m['identifier'] for m in media if 'identifier' in m]
+        species_data = {}
+        tasks = []
+        species_names = []
+        
+        for result in results.get('results', []):
+            taxon_class = result.get('class')
+            if 'species' in result and taxon_class not in excluded_groups:
+                species_name = result['species']
+                media = result.get('media', [])
+                media_urls = [m['identifier'] for m in media if 'identifier' in m]
 
-                        if media_urls and species_name not in species_data:
-                            tasks.append(fetch_species_data(session, species_name))
+                if media_urls and species_name not in species_data:
+                    tasks.append(fetch_species_data(session, species_name))
+                    species_names.append(species_name)
 
-                            species_data[species_name] = {
-                                "images": media_urls,
-                            }
+                    species_data[species_name] = {
+                        "images": media_urls,
+                    }
 
-                        if len(species_data) == n:
-                            break
-                
-                if tasks:
-                    additional_data = await asyncio.gather(*tasks)
-                    for species_name, data in zip(species_data.keys(), additional_data):
-                        species_data[species_name].update(data)
+                if len(species_data) == n:
+                    break
+        
+        print(f"GBIF processing time: {time.time() - start_time:.2f} seconds")
+        print(f"Starting to fetch additional data for {len(tasks)} species")
+        
+        if tasks:
+            additional_data_results = await asyncio.gather(*tasks, return_exceptions=True)
+            for species_name, data in zip(species_names, additional_data_results):
+                if isinstance(data, Exception):
+                    print(f"Error fetching data for {species_name}: {data}")
+                    species_data[species_name]['error'] = str(data)
+                else:
+                    species_data[species_name].update(data)
 
-                return species_data
+        print(f"Total GBIF processing time: {time.time() - start_time:.2f} seconds")
+        return species_data
 
 async def API_Response(address: str, n: int = 8) -> dict:
+    """Main API function to get species data based on an address"""
+    start_time = time.time()
+    
+    # Get geographic coordinates
     geo_data = geocode(address)
     if not geo_data:
         return {"error": "Address not documented"}
 
     (min_lat, max_lat, min_lon, max_lon), map_plots = geo_data
-
+    
+    # Fetch species data
     species_data = await fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n)
+    
+    print(f"Total API_Response time: {time.time() - start_time:.2f} seconds")
+    
     return {
         "species_data": species_data,
         "coords": map_plots

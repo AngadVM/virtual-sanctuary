@@ -1,74 +1,87 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ExplorePage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [result, setResult] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [speciesList, setSpeciesList] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = async (event) => {
-    event.preventDefault();
-
-    try {
+    const handleSearch = async (event) => {
+      event.preventDefault();
+      setSpeciesList([]); // Clear previous results
+      setIsLoading(true);
+  
       const response = await fetch("http://localhost:5000/explore", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ location: searchTerm }),
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ location: searchTerm }),
       });
-
-      const data = await response.json();
-      console.log("Backend Response:", data); // Log response
-
-      setResult(data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
+  
+      if (!response.ok) {
+          console.error("Error fetching data:", response.statusText);
+          setIsLoading(false);
+          return;
+      }
+  
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+  
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+  
+          const decodedText = decoder.decode(value);
+          const speciesArray = decodedText.split("\n\n").filter(Boolean);
+  
+          speciesArray.forEach((speciesText) => {
+              if (speciesText.startsWith("data:")) {
+                  const jsonString = speciesText.replace("data:", "").trim();
+                  try {
+                      const speciesData = JSON.parse(jsonString);
+                      setSpeciesList((prev) => [...prev, speciesData]);
+                  } catch (error) {
+                      console.error("Error parsing species JSON:", error);
+                  }
+              }
+          });
+      }
+  
+      setIsLoading(false);
   };
+  
 
-  return (
-    <form onSubmit={handleSearch} className="max-w-md mx-auto my-6">
-      <label htmlFor="default-search" className="sr-only">
-        Search
-      </label>
-      <div className="relative">
-        <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-          <svg
-            class="w-4 h-4 text-gray-500 dark:text-gray-400"
-            aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 20 20"
-          >
-            <path
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
-            />
-          </svg>
+    return (
+        <div className="max-w-md mx-auto my-6">
+            <form onSubmit={handleSearch}>
+                <div className="relative">
+                    <input
+                        type="search"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="block w-full p-4 ps-10 text-sm text-gray-300 rounded-lg bg-slate-900"
+                        placeholder="Search a location..."
+                        required
+                    />
+                    <button
+                        type="submit"
+                        className="absolute end-2.5 bottom-2.5 bg-blue-500 text-white rounded-lg px-4 py-1.5"
+                    >
+                        Search
+                    </button>
+                </div>
+            </form>
+
+            {isLoading && <p className="mt-4 text-white">Loading species data...</p>}
+
+            <ul className="mt-4 text-white">
+    {speciesList.map((species, index) => (
+        <li key={index}>
+            <pre className="bg-gray-800 p-2 rounded">{JSON.stringify(species, null, 2)}</pre>
+        </li>
+    ))}
+</ul>
+
         </div>
-        <input
-          type="search"
-          id="default-search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full p-4 ps-10 text-sm text-gray-300 rounded-lg bg-slate-900"
-          placeholder="Search a location..."
-          required
-        />
-        <button
-          type="submit"
-          className="absolute end-2.5 bottom-2.5 bg-blue-500 text-white rounded-lg px-4 py-1.5"
-        >
-          Search
-        </button>
-      </div>
-      {result && (
-        <div className="mt-4 p-4">
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-        </div>
-      )}
-    </form>
-  );
+    );
 }
