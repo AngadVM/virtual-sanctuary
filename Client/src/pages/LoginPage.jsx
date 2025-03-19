@@ -14,7 +14,7 @@ export function LoginPage() {
           Sign In
         </Typography>
         <Typography className="mb-16 text-gray-600 font-normal text-[18px]">
-          Enter your email and password to sign in
+          Enter your username and password to sign in
         </Typography>
         <form action="#" className="mx-auto max-w-[24rem] text-left">
           <div className="mb-6">
@@ -23,7 +23,7 @@ export function LoginPage() {
                 variant="small"
                 className="mb-2 block font-medium text-gray-300"
               >
-                Your Email
+                Username
               </Typography>
             </label>
             <Input
@@ -32,7 +32,7 @@ export function LoginPage() {
               size="lg"
               type="email"
               name="email"
-              placeholder="name@mail.com"
+              placeholder="abc123"
               className="w-full placeholder:opacity-100 custom-border"
               labelProps={{
                 className: "hidden",

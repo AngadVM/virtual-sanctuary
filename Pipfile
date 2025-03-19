@@ -18,6 +18,8 @@ requests = "*"
 oauthlib = "*"
 bleach = "*"
 flask-cors = "*"
+bs4 = "*"
+geopy = "*"
 aiofiles = "*"
 
 [dev-packages]

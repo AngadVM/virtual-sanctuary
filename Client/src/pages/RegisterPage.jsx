@@ -23,7 +23,7 @@ export function RegisterPage() {
                 variant="small"
                 className="mb-2 block font-medium text-gray-300"
               >
-                Your Username
+                Username
               </Typography>
             </label>
             <Input
@@ -46,7 +46,7 @@ export function RegisterPage() {
                 variant="small"
                 className="mb-2 block font-medium text-gray-300"
               >
-                Your Email
+                Email
               </Typography>
             </label>
             <Input
@@ -69,6 +69,34 @@ export function RegisterPage() {
                 className="mb-2 block font-medium text-gray-300"
               >
                 Password
+              </Typography>
+            </label>
+            <Input
+              size="lg"
+              placeholder="********"
+              labelProps={{
+                className: "hidden",
+              }}
+              className="w-full placeholder:opacity-100 custom-border"
+              type={passwordShown ? "text" : "password"}
+              icon={
+                <i onClick={togglePasswordVisiblity}>
+                  {passwordShown ? (
+                    <EyeIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeSlashIcon className="h-5 w-5" />
+                  )}
+                </i>
+              }
+            />
+          </div>
+          <div className="mb-6 passwordbox">
+            <label htmlFor="password">
+              <Typography
+                variant="small"
+                className="mb-2 block font-medium text-gray-300"
+              >
+                Confirm Password
               </Typography>
             </label>
             <Input
