@@ -4,14 +4,17 @@ import { useState, useRef, useEffect } from "react";
 const SpeciesCarousel = ({ speciesList }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [slideDirection, setSlideDirection] = useState(null);
   const audioRef = useRef(null);
 
   // Handle navigation
   const goToNext = () => {
+    setSlideDirection("right");
     setCurrentIndex((prevIndex) => (prevIndex + 1) % speciesList.length);
   };
 
   const goToPrev = () => {
+    setSlideDirection("left");
     setCurrentIndex((prevIndex) => (prevIndex - 1 + speciesList.length) % speciesList.length);
   };
 
@@ -34,6 +37,13 @@ const SpeciesCarousel = ({ speciesList }) => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
+    
+    // Reset slide direction after animation completes
+    const timer = setTimeout(() => {
+      setSlideDirection(null);
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [currentIndex]);
 
   // Early return if no species data
@@ -66,13 +76,20 @@ const SpeciesCarousel = ({ speciesList }) => {
     audioUrl = speciesData.audio[0];
   }
 
+  // Add animation classes based on slide direction
+  const slideAnimationClass = slideDirection === "right" 
+    ? "animate-slide-left" 
+    : slideDirection === "left" 
+      ? "animate-slide-right" 
+      : "";
+
   return (
-    <div className="relative w-full h-128 overflow-hidden">
+    <div className="relative w-full">
       {/* Hidden audio element */}
       <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
       
       {/* Card content with side-by-side layout */}
-      <div className="flex h-full w-full bg-slate-900 shadow-xl rounded-lg overflow-hidden">
+      <div className={`flex h-full w-full bg-black shadow-xl rounded-lg overflow-hidden transition-all duration-300 ${slideAnimationClass}`} style={{ height: "32rem" }}>
         {/* Left side: Content */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto relative">
           <div className="h-full flex flex-col">
@@ -135,11 +152,11 @@ const SpeciesCarousel = ({ speciesList }) => {
         </div>
         
         {/* Right side: Image */}
-        <div className="w-1/2 relative hidden md:block">
+        <div className="w-1/2 relative hidden md:block overflow-hidden">
           <img 
             src={imageUrl} 
             alt={commonName}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
             onError={(e) => {
               e.target.onerror = null;
               e.target.src = "https://via.placeholder.com/800?text=No+Image";
@@ -148,17 +165,12 @@ const SpeciesCarousel = ({ speciesList }) => {
         </div>
       </div>
       
-      {/* Navigation counter */}
-      <div className="absolute bottom-4 left-0 right-0 text-center">
-        <p className="text-gray-400">{currentIndex + 1} of {speciesList.length}</p>
-      </div>
-      
-      {/* Navigation buttons */}
+      {/* Navigation buttons and counter - moved outside the card */}
       {speciesList.length > 1 && (
-        <>
+        <div className="mt-6 flex justify-between items-center px-4">
           <button 
             onClick={goToPrev}
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-70 transition-all z-20"
+            className="bg-slate-800 text-white rounded-full p-3 hover:bg-slate-700 transition-all transform hover:-translate-x-1 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg"
             aria-label="Previous species"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,16 +178,20 @@ const SpeciesCarousel = ({ speciesList }) => {
             </svg>
           </button>
           
+          <p className="text-gray-300 text-lg font-medium">
+            {currentIndex + 1} of {speciesList.length}
+          </p>
+          
           <button 
             onClick={goToNext}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-70 transition-all z-20"
+            className="bg-slate-800 text-white rounded-full p-3 hover:bg-slate-700 transition-all transform hover:translate-x-1 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg"
             aria-label="Next species"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-        </>
+        </div>
       )}
     </div>
   );
@@ -374,3 +390,4 @@ export default function ExplorePage() {
     </div>
   );
 }
+

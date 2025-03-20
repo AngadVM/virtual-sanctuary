@@ -3,7 +3,7 @@ import "@pages/GalleryPage.css";
 import viewIcon from "@/assets/view-icon.svg";
 
 function GalleryPage() {
-  const [query, setQuery] = useState("koala");
+  const [query, setQuery] = useState("dog");
   const [loading, setLoading] = useState();
   const [data, setData] = useState([]);
 
