@@ -46,7 +46,7 @@ function MainPage() {
           <div className="hidden lg:flex lg:flex-1 lg:justify-end">
             <button className="text-sm/6 font-semibold text-gray-200"></button>
             <Link to="/login" className="text-sm/6 font-semibold text-gray-200">
-              Log in <span aria-hidden="true">&rarr;</span>
+              Sign in <span aria-hidden="true">&rarr;</span>
             </Link>
           </div>
         </nav>
@@ -83,7 +83,7 @@ function MainPage() {
             <h1 className="text-6xl font-semibold tracking-tight text-balance text-gray-200 sm:text-5xl">
               Discover the untamed beauty of wildlife virtually.
             </h1>
-            <p className="mt-8 text-lg font-medium text-pretty text-gray-500 sm:text-xl/8">
+            <p className="mt-8 text-md font-medium text-gray-500 sm:text-md/8">
               Explore our virtual wildlife sanctuary and witness real-time
               conservation status updates and connect with nature's finest
               creatures.

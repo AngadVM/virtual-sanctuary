@@ -13,7 +13,7 @@ export default function ErrorPage() {
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <a
-                href="#"
+                href="/"
                 className="rounded-md bg-gray-200 px-3.5 py-2.5 text-sm font-semibold text-black shadow-xs hover:bg-gray-300 focus-visible:outline-2 focus-visible:outline-offset-2 "
               >
                 Go back home
