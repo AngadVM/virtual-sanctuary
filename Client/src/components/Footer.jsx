@@ -1,18 +1,11 @@
 import React from "react";
 import tvsFullLogo from "@assets/tvs-full-logo.svg";
 
-const scrollToAbout = (e) => {
-  e.preventDefault();
-  const aboutSection = document.querySelector('.about');
-  if (aboutSection) {
-    aboutSection.scrollIntoView({ behavior: 'smooth' });
-  }
-};
 
 function Footer() {
   return (
     <div>
-      <footer className="bg-black rounded-lg shadow-sm dark:bg-black m-4">
+      <footer className="w-4xl">
         <div className="w-full max-w-screen-xl mx-auto p-4 md:py-8">
           <div className="sm:flex sm:items-center sm:justify-between">
             <a
@@ -23,7 +16,7 @@ function Footer() {
             </a>
             <ul className="flex flex-wrap items-center mb-6 text-sm font-medium text-gray-500 sm:mb-0 dark:text-gray-400">
               <li>
-                <a href="#about" onClick={scrollToAbout} className="hover:underline me-4 md:me-6">
+                <a href="#about" className="hover:underline me-4 md:me-6">
                   About
                 </a>
               </li>
