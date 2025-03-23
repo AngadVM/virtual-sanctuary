@@ -4,22 +4,18 @@ from flask_cors import CORS
 import json
 import concurrent.futures
 import time
+import asyncio
+import aiohttp
+import tempfile
+import uuid
+import shutil
+import os
 
 from Modules.llm import narrate
 from Modules.news import get_news_rss
 from Modules.aud import process_audio
 from Modules.animals import API_Response
 from Modules.animal_viz import create_visualization
-
-from pydub import AudioSegment
-import os
-import random
-from pathlib import Path
-import asyncio
-import aiohttp
-import tempfile
-import uuid
-import shutil
 
 app = Flask(__name__)
 CORS(app)
@@ -141,11 +137,9 @@ def serve_audio(filename):
     print(f"Serving audio file: {filename}")
     return send_from_directory(audio_dir, filename)
 
-
 @app.route("/api/health")
 def health_check():
     return jsonify({"status": "ok"})
-
 
 if __name__ == "__main__":
     app.run(debug=True, threaded=True)
