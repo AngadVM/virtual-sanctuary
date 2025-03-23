@@ -4,21 +4,18 @@ from flask_cors import CORS
 import json
 import concurrent.futures
 import time
-
-from Modules.llm import narrate
-from Modules.news import get_news_rss
-from Modules.aud import process_audio
-from Modules.animals import API_Response
-
-from pydub import AudioSegment
-import os
-import random
-from pathlib import Path
 import asyncio
 import aiohttp
 import tempfile
 import uuid
 import shutil
+import os
+
+from Modules.llm import narrate
+from Modules.news import get_news_rss
+from Modules.aud import process_audio
+from Modules.animals import API_Response
+from Modules.animal_viz import create_visualization
 
 app = Flask(__name__)
 CORS(app)
@@ -99,6 +96,32 @@ def explore():
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
+@app.route("/visualize", methods=["POST"])
+def visualize():
+    """Handles species visualization requests."""
+    if request.method == "POST":
+        animal_name = request.json.get('animal')
+        
+        if not animal_name:
+            return jsonify({"error": "Animal name not provided"}), 400
+        
+        try:
+            file_path = create_visualization(animal_name)
+            
+            if not file_path:
+                return jsonify({"error": "No data found for the specified animal"}), 404
+            
+            return jsonify({
+                "success": True,
+                "file_path": file_path,
+                "message": "Visualization created successfully"
+            })
+
+        except Exception as e:
+            error_msg = {'error': f'An error occurred: {str(e)}'}
+            print("Visualization Error:", error_msg)
+            return jsonify(error_msg), 500
+
 @app.route("/audio/<filename>")
 def serve_audio(filename):
     """Serve audio files with improved error handling."""
@@ -113,7 +136,6 @@ def serve_audio(filename):
     # Log successful audio requests
     print(f"Serving audio file: {filename}")
     return send_from_directory(audio_dir, filename)
-
 
 @app.route("/api/health")
 def health_check():

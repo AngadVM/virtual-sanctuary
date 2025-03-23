@@ -18,9 +18,16 @@ requests = "*"
 oauthlib = "*"
 bleach = "*"
 flask-cors = "*"
-bs4 = "*"
-geopy = "*"
-aiofiles = "*"
+pandas = "*"
+numpy = "*"
+folium = "*"
+ipython = "*"
+plotly = "*"
+pytest = "*"
+pytest-flask = "*"
+flask-session = "*"
+flask-login = "*"
+
 
 [dev-packages]
 
