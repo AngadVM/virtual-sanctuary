@@ -5,7 +5,8 @@
   font-style: normal;
 }
 body {
-  background: #000;
+  background: #fff;
+  color: black;
 }
 .serif-text {
   font-family: "Prociono";

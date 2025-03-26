@@ -21,7 +21,7 @@ export function LoginPage() {
             <label htmlFor="email">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Username
               </Typography>
@@ -43,7 +43,7 @@ export function LoginPage() {
             <label htmlFor="password">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Password
               </Typography>
@@ -70,7 +70,7 @@ export function LoginPage() {
           <Button
             color="white"
             size="lg"
-            className="mt-6 text-black bg-gray-200"
+            className="mt-6 text-white bg-gray-900"
             fullWidth
           >
             sign in
@@ -89,7 +89,7 @@ export function LoginPage() {
           <Button
             variant="outlined"
             size="lg"
-            className="mt-6 flex h-12 items-center justify-center gap-2 text-gray-300"
+            className="mt-6 flex h-12 items-center justify-center gap-2 text-gray-800"
             fullWidth
           >
             <img
@@ -105,8 +105,8 @@ export function LoginPage() {
             className="!mt-4 text-center font-normal text-gray-600"
           >
             Not registered?{" "}
-            <a href="/register" className="font-medium text-gray-200 underline">
-              Create account
+            <a href="/register" className="font-medium text-gray-800 underline">
+              Create account  
             </a>
           </Typography>
         </form>

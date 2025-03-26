@@ -21,7 +21,7 @@ export function RegisterPage() {
             <label htmlFor="email">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Username
               </Typography>
@@ -44,7 +44,7 @@ export function RegisterPage() {
             <label htmlFor="email">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Email
               </Typography>
@@ -66,7 +66,7 @@ export function RegisterPage() {
             <label htmlFor="password">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Password
               </Typography>
@@ -94,7 +94,7 @@ export function RegisterPage() {
             <label htmlFor="password">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Confirm Password
               </Typography>
@@ -121,7 +121,7 @@ export function RegisterPage() {
           <Button
             color="white"
             size="lg"
-            className="mt-6 text-black bg-gray-200"
+            className="mt-6 text-white bg-gray-900"
             fullWidth
           >
             sign up
@@ -129,7 +129,7 @@ export function RegisterPage() {
           <Button
             variant="outlined"
             size="lg"
-            className="mt-3 flex h-12 items-center justify-center gap-2 text-gray-300"
+            className="mt-3 flex h-12 items-center justify-center gap-2 text-gray-800"
             fullWidth
           >
             <img
