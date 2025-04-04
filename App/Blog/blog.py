@@ -1,6 +1,6 @@
 from flask import(
     Blueprint, flash, g, redirect, render_template, 
-    request, url_for, current_app
+    request, url_for, current_app, jsonify
 )
 from werkzeug.exceptions import abort
 from werkzeug.utils import secure_filename
@@ -30,7 +30,7 @@ def get_post_comments(post_id):
         ' ORDER BY c.created DESC',
         (post_id,)
     ).fetchall()
-    return comments
+    return [dict(comment) for comment in comments]
 
 
 def get_post(id, check_author=True):
@@ -83,15 +83,21 @@ def index():
         ]
         posts_with_images.append(post_dict)
     
-    return render_template('blog/index.html', posts=posts_with_images)
+    return jsonify({
+        "success": True,
+        "posts": posts_with_images
+    })
 
 
 @bp.route('/<int:id>/view')
 def view(id):
     post = get_post(id, check_author=False)
     comments = get_post_comments(id)
-    return render_template('blog/view.html', post=post, comments=comments)
-
+    return jsonify({
+        "success": True,
+        "post": post,
+        "comments": comments
+    })
 
 
 @bp.route('/create', methods=('GET', 'POST'))
@@ -106,25 +112,29 @@ def create():
             error = 'Title is required'
 
         if error is not None:
-            flash(error)
-        else:
-            # Sanitize HTML content while allowing specific tags
-            allowed_tags = [
-                'p', 'h1', 'h2', 'strong', 'em', 'u', 'blockquote', 
-                'code', 'pre', 'ol', 'ul', 'li', 'a'
-            ]
-            allowed_attrs = {
-                'a': ['href', 'title'],
-                '*': ['class']
-            }
-            clean_body = bleach.clean(
-                body,
-                tags=allowed_tags,
-                attributes=allowed_attrs,
-                strip=True
-            )
+            return jsonify({
+                "success": False,
+                "error": error
+            }), 400
 
-            db = get_db()
+        # Sanitize HTML content while allowing specific tags
+        allowed_tags = [
+            'p', 'h1', 'h2', 'strong', 'em', 'u', 'blockquote', 
+            'code', 'pre', 'ol', 'ul', 'li', 'a'
+        ]
+        allowed_attrs = {
+            'a': ['href', 'title'],
+            '*': ['class']
+        }
+        clean_body = bleach.clean(
+            body,
+            tags=allowed_tags,
+            attributes=allowed_attrs,
+            strip=True
+        )
+
+        db = get_db()
+        try:
             # Insert post
             cursor = db.execute(
                 'INSERT INTO post (title, body, author_id)'
@@ -137,6 +147,7 @@ def create():
             images = request.files.getlist('images')
             upload_folder = os.path.join(current_app.static_folder, 'uploads')
             os.makedirs(upload_folder, exist_ok=True)
+            uploaded_images = []
 
             for file in images:
                 if file and file.filename and allowed_file(file.filename):
@@ -149,11 +160,28 @@ def create():
                         'INSERT INTO post_images (post_id, image_url) VALUES (?, ?)',
                         (post_id, f'uploads/{filename}')
                     )
+                    uploaded_images.append(f'uploads/{filename}')
 
             db.commit()
-            return redirect(url_for('blog.index'))
+            
+            return jsonify({
+                "success": True,
+                "message": "Post created successfully",
+                "post_id": post_id,
+                "uploaded_images": uploaded_images
+            })
 
-    return render_template('blog/create.html')
+        except Exception as e:
+            db.rollback()
+            return jsonify({
+                "success": False,
+                "error": f"Error creating post: {str(e)}"
+            }), 500
+
+    return jsonify({
+        "success": True,
+        "message": "Create post form endpoint"
+    })
 
 
 @bp.route('/<int:id>/update', methods=('GET', 'POST'))
@@ -170,10 +198,13 @@ def update(id):
             error = 'Title is required.'
 
         if error is not None:
-            flash(error)
-        else:
-            db = get_db()
-            
+            return jsonify({
+                "success": False,
+                "error": error
+            }), 400
+
+        db = get_db()
+        try:
             # Handle image removal
             removed_images = request.form.getlist('remove_images')
             for img in removed_images:
@@ -186,6 +217,7 @@ def update(id):
                 db.execute('DELETE FROM post_images WHERE image_url = ?', (img,))
 
             # Handle new image uploads
+            uploaded_images = []
             for file in request.files.getlist('images'):
                 if file and file.filename:
                     if allowed_file(file.filename):
@@ -199,8 +231,12 @@ def update(id):
                             'INSERT INTO post_images (post_id, image_url) VALUES (?, ?)',
                             (id, f'uploads/{filename}')
                         )
+                        uploaded_images.append(f'uploads/{filename}')
                     else:
-                        flash('Invalid file type. Allowed types are png, jpg, jpeg, gif')
+                        return jsonify({
+                            "success": False,
+                            "error": "Invalid file type. Allowed types are png, jpg, jpeg, gif"
+                        }), 400
 
             # Update post details
             db.execute(
@@ -209,9 +245,27 @@ def update(id):
                 (title, body, id)
             )
             db.commit()
-            return redirect(url_for('blog.index'))
+
+            return jsonify({
+                "success": True,
+                "message": "Post updated successfully",
+                "post_id": id,
+                "uploaded_images": uploaded_images
+            })
+
+        except Exception as e:
+            db.rollback()
+            return jsonify({
+                "success": False,
+                "error": f"Error updating post: {str(e)}"
+            }), 500
     
-    return render_template('blog/update.html', post=post, images=post['images'])
+    return jsonify({
+        "success": True,
+        "post": post,
+        "message": "Update post form endpoint"
+    })
+
 
 @bp.route('/<int:id>/delete', methods=('POST',))
 @login_required
@@ -234,13 +288,18 @@ def delete(id):
         db.execute('DELETE FROM post WHERE id = ?', (id,))
         db.commit()
         
-        flash('Post was successfully deleted.')
+        return jsonify({
+            "success": True,
+            "message": "Post was successfully deleted"
+        })
+
     except Exception as e:
         db.rollback()
-        flash('Error deleting post.')
-        print(f"Database error: {e}")
-        
-    return redirect(url_for('blog.index'))
+        return jsonify({
+            "success": False,
+            "error": f"Error deleting post: {str(e)}"
+        }), 500
+
 
 @bp.route('/post/<int:post_id>/comment', methods=['POST'])
 @login_required
@@ -252,43 +311,78 @@ def add_comment(post_id):
         error = 'Comment cannot be empty.'
     
     if error is not None:
-        flash(error)
-    else:
-        db = get_db()
+        return jsonify({
+            "success": False,
+            "error": error
+        }), 400
+
+    db = get_db()
+    try:
         post = db.execute('SELECT id FROM post WHERE id = ?', (post_id,)).fetchone()
         
         if post is None:
-            abort(404, f"Post id {post_id} doesn't exist.")
+            return jsonify({
+                "success": False,
+                "error": f"Post id {post_id} doesn't exist."
+            }), 404
             
-        db.execute(
+        cursor = db.execute(
             'INSERT INTO comment (body, author_id, post_id) VALUES (?, ?, ?)',
             (body, g.user['id'], post_id)
         )
+        comment_id = cursor.lastrowid
         db.commit()
-        flash('Your comment has been added.', 'success')
-    
-    return redirect(url_for('blog.view', id=post_id))
+
+        return jsonify({
+            "success": True,
+            "message": "Comment added successfully",
+            "comment_id": comment_id
+        })
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({
+            "success": False,
+            "error": f"Error adding comment: {str(e)}"
+        }), 500
+
 
 @bp.route('/comment/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_comment(id):
     db = get_db()
-    comment = db.execute(
-        'SELECT c.id, c.author_id, c.post_id, p.author_id as post_author_id'
-        ' FROM comment c JOIN post p ON c.post_id = p.id'
-        ' WHERE c.id = ?',
-        (id,)
-    ).fetchone()
+    try:
+        comment = db.execute(
+            'SELECT c.id, c.author_id, c.post_id, p.author_id as post_author_id'
+            ' FROM comment c JOIN post p ON c.post_id = p.id'
+            ' WHERE c.id = ?',
+            (id,)
+        ).fetchone()
 
-    if comment is None:
-        abort(404, f"Comment id {id} doesn't exist.")
-    
-    # Allow both comment author and post author to delete comments
-    if comment['author_id'] != g.user['id'] and comment['post_author_id'] != g.user['id']:
-        abort(403)
+        if comment is None:
+            return jsonify({
+                "success": False,
+                "error": f"Comment id {id} doesn't exist."
+            }), 404
+        
+        # Allow both comment author and post author to delete comments
+        if comment['author_id'] != g.user['id'] and comment['post_author_id'] != g.user['id']:
+            return jsonify({
+                "success": False,
+                "error": "Permission denied"
+            }), 403
 
-    db.execute('DELETE FROM comment WHERE id = ?', (id,))
-    db.commit()
-    flash('Comment deleted.', 'success')
-    
-    return redirect(url_for('blog.view', id=comment['post_id']))
+        db.execute('DELETE FROM comment WHERE id = ?', (id,))
+        db.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Comment deleted successfully"
+        })
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({
+            "success": False,
+            "error": f"Error deleting comment: {str(e)}"
+        }), 500

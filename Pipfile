@@ -27,7 +27,8 @@ pytest = "*"
 pytest-flask = "*"
 flask-session = "*"
 flask-login = "*"
-
+bs4 = "*"
+geopy = "*"
 
 [dev-packages]
 

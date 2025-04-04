@@ -1,5 +1,5 @@
 import functools
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
+from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app, jsonify
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from Blog.db import get_db
@@ -33,15 +33,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Blueprint for auth
-bp = Blueprint('auth', __name__, url_prefix='/auth')
-
 
 def validate_email(email):
     """Validate email format using regex pattern. """
     pattern =r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern,email) is not None
-
 
 
 def validate_password(password):
@@ -52,22 +48,15 @@ def validate_password(password):
     - Contains at least one lowercase letter
     - Contains at least one number
     """
-
     if len(password) < 8:
         return False
-
     if not any(c.isupper() for c in password):
         return False
-
     if not any(c.islower() for c in password):
         return False
-
     if not any(c.isdigit() for c in password):
         return False
-
-    return True 
-        
-
+    return True
 
 
 class SocialMediaValidator:
@@ -81,24 +70,13 @@ class SocialMediaValidator:
 
     @staticmethod
     def validate_twitter(handle):
-        """
-        Validate Twitter handle format:
-        - 4-15 characters
-        - Only alphanumeric and underscore
-        - Cannot be only numbers
-        """
+        """Validate Twitter handle format"""
         pattern = r'^[A-Za-z0-9_]{4,15}$'
         return bool(re.match(pattern, handle)) and not handle.isdigit()
 
     @staticmethod
     def validate_instagram(handle):
-        """
-        Validate Instagram handle format:
-        - 1-30 characters
-        - Only alphanumeric, periods, and underscores
-        - Cannot start or end with period
-        - Cannot have consecutive periods
-        """
+        """Validate Instagram handle format"""
         pattern = r'^[A-Za-z0-9._]{1,30}$'
         if not re.match(pattern, handle):
             return False
@@ -110,22 +88,14 @@ class SocialMediaValidator:
 
     @staticmethod
     def validate_linkedin_url(url):
-        """
-        Validate LinkedIn URL format:
-        - Must start with linkedin.com/in/
-        - Username portion should be 3-100 chars
-        - Can contain letters, numbers, hyphens
-        """
+        """Validate LinkedIn URL format"""
         pattern = r'^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-]{3,100}\/?$'
         return bool(re.match(pattern, url))
 
     @staticmethod
     @lru_cache(maxsize=100)
     def verify_handle_exists(handle, platform):
-        """
-        Verify if the social media handle actually exists.
-        Uses caching to prevent excessive API calls.
-        """
+        """Verify if the social media handle actually exists"""
         try:
             if platform == 'twitter':
                 url = f"https://twitter.com/{handle}"
@@ -137,36 +107,46 @@ class SocialMediaValidator:
             response = requests.head(url, allow_redirects=True, timeout=5)
             return response.status_code == 200
         except:
-            return True  # On error, assume handle exists to avoid blocking valid users
+            return True
 
 
-
-# Add Google login routes
 @bp.route('/google-login')
 def google_login():
-    # Find out what URL to hit for Google login
-    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+    """Initiate Google OAuth login"""
+    try:
+        google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+        authorization_endpoint = google_provider_cfg["authorization_endpoint"]
 
-    # Use library to construct the request for login
-    request_uri = client.prepare_request_uri(
-        authorization_endpoint,
-        redirect_uri=request.base_url + "/callback",
-        scope=["openid", "email", "profile"],
-    )
-    return redirect(request_uri)
-
+        request_uri = client.prepare_request_uri(
+            authorization_endpoint,
+            redirect_uri=request.base_url + "/callback",
+            scope=["openid", "email", "profile"],
+        )
+        return jsonify({
+            "success": True,
+            "auth_url": request_uri
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to initialize Google login: {str(e)}"
+        }), 500
 
 
 @bp.route('/google-login/callback')
 def google_callback():
+    """Handle Google OAuth callback"""
     try:
-        # Get authorization code Google sent back
         code = request.args.get("code")
+        if not code:
+            return jsonify({
+                "success": False,
+                "error": "No authorization code received"
+            }), 400
+
         google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
         token_endpoint = google_provider_cfg["token_endpoint"]
 
-        # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
             token_endpoint,
             authorization_response=request.url,
@@ -181,324 +161,321 @@ def google_callback():
             auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
         )
 
-        # Parse the tokens
         client.parse_request_body_response(json.dumps(token_response.json()))
         
-        # Get user info from Google
         userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
         uri, headers, body = client.add_token(userinfo_endpoint)
         userinfo_response = requests.get(uri, headers=headers, data=body)
 
-        if userinfo_response.json().get("email_verified"):
-            google_id = userinfo_response.json()["sub"]
-            email = userinfo_response.json()["email"]
-            username = userinfo_response.json().get("given_name", email.split('@')[0])
-        else:
-            flash("Google authentication failed - Email not verified", "error")
-            return redirect(url_for("auth.login"))
+        if not userinfo_response.json().get("email_verified"):
+            return jsonify({
+                "success": False,
+                "error": "Email not verified by Google"
+            }), 400
 
-        # Check if user exists and handle accordingly
+        google_id = userinfo_response.json()["sub"]
+        email = userinfo_response.json()["email"]
+        username = userinfo_response.json().get("given_name", email.split('@')[0])
+
         db = get_db()
-        user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
+        user = db.execute(
+            'SELECT * FROM user WHERE email = ?', (email,)
+        ).fetchone()
 
         if user is None:
-            try:
-                # Create new user
-                google_password = os.urandom(24).hex()
-                db.execute(
-                    "INSERT INTO user (email, username, password, google_id) VALUES (?, ?, ?, ?)",
-                    (email, username, generate_password_hash(google_password), google_id)
-                )
-                db.commit()
-                user = db.execute('SELECT * FROM user WHERE email = ?', (email,)).fetchone()
-                flash('Account created successfully!', 'success')
-            except db.IntegrityError as e:
-                flash('Error creating account. Please try again.', 'error')
-                return redirect(url_for("auth.login"))
+            # Create new user
+            db.execute(
+                'INSERT INTO user (username, email, google_id) VALUES (?, ?, ?)',
+                (username, email, google_id)
+            )
+            db.commit()
+            user = db.execute(
+                'SELECT * FROM user WHERE email = ?', (email,)
+            ).fetchone()
 
-        # Log in the user
         session.clear()
         session['user_id'] = user['id']
-        return redirect(url_for('index'))
+
+        return jsonify({
+            "success": True,
+            "message": "Successfully logged in with Google",
+            "user": {
+                "id": user['id'],
+                "username": user['username'],
+                "email": user['email']
+            }
+        })
 
     except Exception as e:
-        flash(f"Authentication error: {str(e)}", "error")
-        return redirect(url_for("auth.login"))
+        return jsonify({
+            "success": False,
+            "error": f"Google authentication failed: {str(e)}"
+        }), 500
 
 
-
-# Modify existing register route to handle both traditional and Google sign-up
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
+    """Handle user registration"""
     if request.method == 'POST':
-        username = request.form['username'].strip()
+        username = request.form['username']
         password = request.form['password']
-        email = request.form['email'].strip().lower()
+        email = request.form['email']
         db = get_db()
         error = None
 
-        # Input validation
         if not username:
-            error = 'Username is required'
-        elif len(username) < 3:
-            error = 'Username must be at least 3 characters long'
+            error = 'Username is required.'
         elif not password:
-            error = 'Password is required'
-        elif not validate_password(password):
-            error = 'Password must be at least 8 characters and contain uppercase, lowercase, and numbers'
+            error = 'Password is required.'
         elif not email:
-            error = 'Email is required'
+            error = 'Email is required.'
         elif not validate_email(email):
-            error = 'Invalid email format'
+            error = 'Invalid email format.'
+        elif not validate_password(password):
+            error = 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers.'
+        elif db.execute('SELECT id FROM user WHERE username = ?', (username,)).fetchone() is not None:
+            error = f"User {username} is already registered."
+        elif db.execute('SELECT id FROM user WHERE email = ?', (email,)).fetchone() is not None:
+            error = f"Email {email} is already registered."
 
-        if error is None:
-            try:
-                existing_email = db.execute(
-                    'SELECT id FROM user WHERE email = ?', (email,)
-                ).fetchone()
-                if existing_email:
-                    error = 'Email already registered'
-                else:
-                    db.execute(
-                        "INSERT INTO user (email, username, password) VALUES (?, ?, ?)",
-                        (email, username, generate_password_hash(password))
-                    )
-                    db.commit()
-                    flash('Registration successful! Please log in.', 'success')
-                    return redirect(url_for("auth.login"))
-            except db.IntegrityError:
-                error = f"User {username} is already registered."
-        flash(error, 'error')
+        if error is not None:
+            return jsonify({
+                "success": False,
+                "error": error
+            }), 400
 
-    return render_template('auth/register.html')
+        try:
+            db.execute(
+                'INSERT INTO user (username, password, email) VALUES (?, ?, ?)',
+                (username, generate_password_hash(password), email)
+            )
+            db.commit()
 
-# Keep the rest of your existing code...
+            return jsonify({
+                "success": True,
+                "message": "Registration successful",
+                "user": {
+                    "username": username,
+                    "email": email
+                }
+            })
+
+        except Exception as e:
+            db.rollback()
+            return jsonify({
+                "success": False,
+                "error": f"Registration failed: {str(e)}"
+            }), 500
+
+    return jsonify({
+        "success": True,
+        "message": "Registration form endpoint"
+    })
 
 
-
-@bp.route('/login', methods = ['GET', 'POST'])
+@bp.route('/login', methods=['GET', 'POST'])
 def login():
+    """Handle user login"""
     if request.method == 'POST':
-        identifier = request.form['identifier'].strip() # Can be username or email
+        username = request.form['username']
         password = request.form['password']
-
         db = get_db()
         error = None
-
-        # Check if identifier is email or username
-        if '@' in identifier:
-            user = db.execute(
-                'SELECT * FROM user WHERE email = ?', (identifier.lower(),)
-            ).fetchone()
-        else:
-            user = db.execute(
-                'SELECT * FROM user WHERE username = ?', (identifier,)
-            ).fetchone()
+        user = db.execute(
+            'SELECT * FROM user WHERE username = ?', (username,)
+        ).fetchone()
 
         if user is None:
-            error = 'Incorrect credentials'
+            error = 'Incorrect username.'
         elif not check_password_hash(user['password'], password):
-            error = 'Invalid credentials'
+            error = 'Incorrect password.'
 
+        if error is not None:
+            return jsonify({
+                "success": False,
+                "error": error
+            }), 401
 
-        if error is None:
-            session.clear()
-            session['user_id'] = user['id']
-            return redirect(url_for('index'))
-    
-        flash(error)
+        session.clear()
+        session['user_id'] = user['id']
 
-    return render_template('auth/login.html')
+        return jsonify({
+            "success": True,
+            "message": "Successfully logged in",
+            "user": {
+                "id": user['id'],
+                "username": user['username'],
+                "email": user['email']
+            }
+        })
+
+    return jsonify({
+        "success": True,
+        "message": "Login form endpoint"
+    })
 
 
 @bp.before_app_request
 def load_logged_in_user():
+    """Load logged in user before each request"""
     user_id = session.get('user_id')
 
     if user_id is None:
         g.user = None
     else:
         g.user = get_db().execute(
-                'SELECT * FROM user WHERE id = ?', (user_id,)
+            'SELECT * FROM user WHERE id = ?', (user_id,)
         ).fetchone()
 
-# Logout
 
 @bp.route('/logout')
 def logout():
+    """Handle user logout"""
     session.clear()
-    return redirect(url_for('index'))
+    return jsonify({
+        "success": True,
+        "message": "Successfully logged out"
+    })
 
-# to check if user is logged in before crud operations are performed on the post
 
 def login_required(view):
+    """Decorator to require login for routes"""
     @functools.wraps(view)
     def wrapped_view(**kwargs):
         if g.user is None:
-            return redirect(url_for('auth.login'))
+            return jsonify({
+                "success": False,
+                "error": "Login required"
+            }), 401
         return view(**kwargs)
-
     return wrapped_view
-
 
 
 @bp.route('/profile/<int:user_id>')
 @bp.route('/profile', defaults={'user_id': None})
 @login_required
 def profile(user_id=None):
-    db = get_db()
-    
+    """Get user profile"""
     if user_id is None:
         user_id = g.user['id']
-        
+
+    db = get_db()
     user = db.execute(
-        'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
-        'FROM user WHERE id = ?',
+        'SELECT u.*, COUNT(DISTINCT p.id) as post_count, COUNT(DISTINCT c.id) as comment_count'
+        ' FROM user u'
+        ' LEFT JOIN post p ON u.id = p.author_id'
+        ' LEFT JOIN comment c ON u.id = c.author_id'
+        ' WHERE u.id = ?'
+        ' GROUP BY u.id',
         (user_id,)
     ).fetchone()
-    
+
     if user is None:
-        abort(404)
-        
-    is_own_profile = g.user['id'] == user_id
+        return jsonify({
+            "success": False,
+            "error": "User not found"
+        }), 404
 
-    posts = db.execute(
-        '''SELECT p.id, title, body, created, author_id, username
-           FROM post p JOIN user u ON p.author_id = u.id
-           WHERE u.id = ?
-           ORDER BY created DESC''',
-        (user_id,)
-    ).fetchall()
+    # Convert SQLite Row to dictionary
+    user_dict = dict(user)
 
-    return render_template('auth/profile.html', user=user, posts=posts, is_own_profile=is_own_profile)
-
-
+    return jsonify({
+        "success": True,
+        "user": {
+            "id": user_dict['id'],
+            "username": user_dict['username'],
+            "email": user_dict['email'],
+            "bio": user_dict.get('bio'),
+            "profile_image": user_dict.get('profile_image'),
+            "social_media": {
+                "twitter": user_dict.get('twitter_handle'),
+                "instagram": user_dict.get('instagram_handle'),
+                "linkedin": user_dict.get('linkedin_url')
+            },
+            "stats": {
+                "posts": user_dict['post_count'],
+                "comments": user_dict['comment_count']
+            }
+        }
+    })
 
 
 @bp.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
-    from flask import current_app
-    
-    db = get_db()
-    user = db.execute(
-        'SELECT id, username, email, about, twitter_handle, instagram_handle, linkedin_url, profile_image '
-        'FROM user WHERE id = ?',
-        (g.user['id'],)
-    ).fetchone()
-
+    """Edit user profile"""
     if request.method == 'POST':
-        # Get form data
-        username = request.form.get('username', '').strip()
-        current_password = request.form.get('current_password', '')
-        new_password = request.form.get('new_password', '')
-        about = request.form.get('about', '').strip()
-        twitter = request.form.get('twitter_handle', '').strip()
-        instagram = request.form.get('instagram_handle', '').strip()
-        linkedin = request.form.get('linkedin_url', '').strip()
+        bio = request.form.get('bio', '').strip()
+        twitter = request.form.get('twitter', '').strip()
+        instagram = request.form.get('instagram', '').strip()
+        linkedin = request.form.get('linkedin', '').strip()
         
         error = None
-        updates = {}
-        
-        # Username validation
-        if username and username != user['username']:
-            if len(username) < 3:
-                error = 'Username must be at least 3 characters long'
-            else:
-                # Check if username is already taken
-                existing_user = db.execute(
-                    'SELECT id FROM user WHERE username = ? AND id != ?',
-                    (username, g.user['id'])
-                ).fetchone()
-                if existing_user:
-                    error = 'Username already taken'
-                else:
-                    updates['username'] = username
-
-        # Password validation
-        if current_password and new_password:
-            if not check_password_hash(user['password'], current_password):
-                error = 'Current password is incorrect'
-            elif not validate_password(new_password):
-                error = 'New password must be at least 8 characters and contain uppercase, lowercase, and numbers'
-            else:
-                updates['password'] = generate_password_hash(new_password)
-
-        # Social media validation
         validator = SocialMediaValidator()
 
-        # Validate Twitter handle
-        if twitter:
-            twitter = validator.clean_handle(twitter, 'twitter')
-            if not validator.validate_twitter(twitter):
-                error = "Invalid Twitter handle format"
-            elif not validator.verify_handle_exists(twitter, 'twitter'):
-                error = "Twitter handle does not exist"
-            updates['twitter_handle'] = f'@{twitter}'
+        # Validate social media handles
+        if twitter and not validator.validate_twitter(validator.clean_handle(twitter, 'twitter')):
+            error = 'Invalid Twitter handle'
+        if instagram and not validator.validate_instagram(validator.clean_handle(instagram, 'instagram')):
+            error = 'Invalid Instagram handle'
+        if linkedin and not validator.validate_linkedin_url(linkedin):
+            error = 'Invalid LinkedIn URL'
 
-        # Validate Instagram handle
-        if instagram:
-            instagram = validator.clean_handle(instagram, 'instagram')
-            if not validator.validate_instagram(instagram):
-                error = "Invalid Instagram handle format"
-            elif not validator.verify_handle_exists(instagram, 'instagram'):
-                error = "Instagram handle does not exist"
-            updates['instagram_handle'] = instagram
+        if error is not None:
+            return jsonify({
+                "success": False,
+                "error": error
+            }), 400
 
-        # Validate LinkedIn URL
-        if linkedin:
-            if not validator.validate_linkedin_url(linkedin):
-                error = "Invalid LinkedIn URL format"
-            elif not validator.verify_handle_exists(linkedin, 'linkedin'):
-                error = "LinkedIn profile URL does not exist"
-            updates['linkedin_url'] = linkedin
+        db = get_db()
+        try:
+            # Handle profile image upload
+            profile_image = None
+            if 'profile_image' in request.files:
+                file = request.files['profile_image']
+                if file and file.filename and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    upload_folder = os.path.join(current_app.static_folder, UPLOAD_FOLDER)
+                    os.makedirs(upload_folder, exist_ok=True)
+                    file_path = os.path.join(upload_folder, filename)
+                    file.save(file_path)
+                    profile_image = os.path.join(UPLOAD_FOLDER, filename)
 
-        # Handle profile image upload
-        if 'profile_image' in request.files:
-            file = request.files['profile_image']
-            if file and file.filename != '':
-                if not allowed_file(file.filename):
-                    error = f"Invalid file type. Allowed types are: {', '.join(ALLOWED_EXTENSIONS)}"
-                else:
-                    try:
-                        # Delete old profile image if it exists
-                        if user['profile_image']:
-                            old_image_path = os.path.join(current_app.root_path, 'static', user['profile_image'])
-                            if os.path.exists(old_image_path):
-                                os.remove(old_image_path)
-                        
-                        # Save new profile image
-                        upload_folder = os.path.join(current_app.root_path, 'static', 'profile_images')
-                        timestamp = int(time.time())
-                        filename = f"{timestamp}_{secure_filename(file.filename)}"
-                        file_path = os.path.join(upload_folder, filename)
-                        file.save(file_path)
-                        updates['profile_image'] = os.path.join('profile_images', filename)
-                    except Exception as e:
-                        error = f"Error saving profile image: {str(e)}"
-                        print(f"File upload error: {str(e)}")
+            # Update user profile
+            if profile_image:
+                db.execute(
+                    'UPDATE user SET bio = ?, twitter_handle = ?, instagram_handle = ?, '
+                    'linkedin_url = ?, profile_image = ? WHERE id = ?',
+                    (bio, twitter, instagram, linkedin, profile_image, g.user['id'])
+                )
+            else:
+                db.execute(
+                    'UPDATE user SET bio = ?, twitter_handle = ?, instagram_handle = ?, '
+                    'linkedin_url = ? WHERE id = ?',
+                    (bio, twitter, instagram, linkedin, g.user['id'])
+                )
+            db.commit()
 
-        # Update about text if changed
-        if about != user['about']:
-            updates['about'] = about
+            return jsonify({
+                "success": True,
+                "message": "Profile updated successfully",
+                "profile": {
+                    "bio": bio,
+                    "twitter": twitter,
+                    "instagram": instagram,
+                    "linkedin": linkedin,
+                    "profile_image": profile_image
+                }
+            })
 
-        if error is None and updates:
-            try:
-                # Build dynamic UPDATE query based on changed fields
-                update_fields = ', '.join([f"{key} = ?" for key in updates.keys()])
-                query = f'UPDATE user SET {update_fields} WHERE id = ?'
-                
-                # Execute update with dynamic parameters
-                db.execute(query, (*updates.values(), g.user['id']))
-                db.commit()
-                
-                flash('Profile updated successfully!', 'success')
-                return redirect(url_for('auth.profile'))
-            except db.Error as e:
-                error = f"Error updating profile: {str(e)}"
-                print(f"Database error: {str(e)}")
-        
-        if error:
-            flash(error, 'error')
+        except Exception as e:
+            db.rollback()
+            return jsonify({
+                "success": False,
+                "error": f"Failed to update profile: {str(e)}"
+            }), 500
 
-    return render_template('auth/edit_profile.html', user=user)
+    return jsonify({
+        "success": True,
+        "message": "Profile edit form endpoint"
+    })
