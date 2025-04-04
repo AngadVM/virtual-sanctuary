@@ -76,7 +76,7 @@ def stream_species_data(species_data):
 
 @app.route("/explore", methods=["POST"]) 
 def explore():
-    """Handles species retrieval based on location and streams the response."""
+    """Handles species retrieval based on location and returns JSON response."""
     location = request.json.get('location')
     
     if not location:
@@ -91,7 +91,43 @@ def explore():
         if "error" in result:
             return jsonify(result), 404
 
-        return Response(stream_species_data(result["species_data"]), mimetype="text/event-stream")
+        # Process each species data
+        processed_data = {}
+        for species_name, data in result["species_data"].items():
+            try:
+                # Generate and cache narrative
+                narrative = get_cached_narrative(species_name)
+                data['narrative'] = narrative
+
+                # Process audio asynchronously
+                audio_files = data.get('audio', [])
+                output_filename = asyncio.run(process_audio(narrative, audio_files))
+                
+                if output_filename:
+                    audio_path = f"/audio/{output_filename}"
+                    data['audio_path'] = audio_path
+                    print(f"Added audio path: {audio_path} for species: {species_name}")
+                else:
+                    print(f"Failed to generate audio for {species_name}")
+                    data['audio_path'] = ""
+
+                # Fetch news articles
+                news_articles = get_news_rss(species_name)
+                data['news'] = news_articles
+
+                processed_data[species_name] = data
+
+            except Exception as e:
+                print(f"Error processing data for {species_name}: {str(e)}")
+                processed_data[species_name] = {
+                    "error": f"Error processing {species_name}: {str(e)}"
+                }
+
+        return jsonify({
+            "success": True,
+            "data": processed_data,
+            "api_time": f"{api_time:.2f} seconds"
+        })
 
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
