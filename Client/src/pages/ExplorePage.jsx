@@ -4,18 +4,33 @@ import { useState, useRef, useEffect } from "react";
 const SpeciesCarousel = ({ speciesList }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [slideDirection, setSlideDirection] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const audioRef = useRef(null);
+  const [displayedIndex, setDisplayedIndex] = useState(0);
+  const [animationDirection, setAnimationDirection] = useState(null);
 
   // Handle navigation
   const goToNext = () => {
-    setSlideDirection("right");
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % speciesList.length);
+    
+    setIsAnimating(true);
+    setAnimationDirection("next");
+    
+    setTimeout(() => {
+      setDisplayedIndex((prevIndex) => (prevIndex + 1) % speciesList.length);
+      setIsAnimating(false);
+    }, 1000);
   };
 
   const goToPrev = () => {
-    setSlideDirection("left");
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + speciesList.length) % speciesList.length);
+    if (isAnimating) return;
+    
+    setIsAnimating(true);
+    setAnimationDirection("prev");
+    
+    setTimeout(() => {
+      setDisplayedIndex((prevIndex) => (prevIndex - 1 + speciesList.length) % speciesList.length);
+      setIsAnimating(false);
+    }, 1000);
   };
 
   // Handle audio playback
@@ -37,14 +52,7 @@ const SpeciesCarousel = ({ speciesList }) => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    
-    // Reset slide direction after animation completes
-    const timer = setTimeout(() => {
-      setSlideDirection(null);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [currentIndex]);
+  }, [displayedIndex]);
 
   // Early return if no species data
   if (!speciesList || speciesList.length === 0) {
@@ -52,7 +60,7 @@ const SpeciesCarousel = ({ speciesList }) => {
   }
 
   // Get current species data
-  const currentSpecies = speciesList[currentIndex];
+  const currentSpecies = speciesList[displayedIndex];
   const speciesKey = Object.keys(currentSpecies)[0];
   const speciesData = currentSpecies[speciesKey];
   
@@ -76,36 +84,35 @@ const SpeciesCarousel = ({ speciesList }) => {
     audioUrl = speciesData.audio[0];
   }
 
-  // Add animation classes based on slide direction
-  const slideAnimationClass = slideDirection === "right" 
-    ? "animate-slide-left" 
-    : slideDirection === "left" 
-      ? "animate-slide-right" 
-      : "";
-
   return (
     <div className="relative w-full">
       {/* Hidden audio element */}
       <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
       
       {/* Card content with side-by-side layout */}
-      <div className={`flex h-full w-full bg-black shadow-xl rounded-lg overflow-hidden transition-all duration-300 ${slideAnimationClass}`} style={{ height: "32rem" }}>
+      <div 
+        className={`card-container flex -mt-8 h-full w-full rounded-lg overflow-hidden transition-all duration-1000 ${
+          isAnimating && animationDirection === "next" ? "slide-out-left" : 
+          isAnimating && animationDirection === "prev" ? "slide-out-right" : ""
+        }`} 
+        style={{ height: "32rem" }}
+      >
         {/* Left side: Content */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto relative">
           <div className="h-full flex flex-col">
             <div className="mb-4">
-              <h2 className="text-3xl font-bold text-white mb-1">{commonName}</h2>
+              <h2 className="text-5xl font-semibold font-sans text-gray-900 mb-1">{commonName}</h2>
               
               <div className="flex items-center mb-4">
-                <p className="text-xl italic text-gray-300">{scientificName}</p>
+                <p className="text-xl pt-2 italic text-gray-700">{scientificName}</p>
                 
                 {audioUrl && (
                   <button 
                     onClick={() => toggleAudio(audioUrl)} 
-                    className={`ml-4 p-2 rounded-full ${
+                    className={`ml-4 mt-2 p-1 rounded-full ${
                       isPlaying 
-                        ? "bg-red-600 hover:bg-red-700" 
-                        : "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-green-800 hover:bg-green-700" 
+                        : "bg-gray-800 hover:bg-gray-700"
                     } transition-colors flex items-center`}
                     aria-label={isPlaying ? "Pause audio" : "Play audio"}
                   >
@@ -123,13 +130,13 @@ const SpeciesCarousel = ({ speciesList }) => {
                 )}
               </div>
               
-              <div className="text-gray-300 mb-4">
+              <div className="text-gray-500 mb-4">
                 <div className="flex items-center mb-1">
-                  <span className="font-medium text-gray-200 mr-2">Observations:</span>
+                  <span className="font-medium text-gray-700 mr-2">Observations:</span>
                   <span>{observationsCount}</span>
                 </div>
-                <div className="flex items-center mb-1">
-                  <span className="font-medium text-gray-200 mr-2">Conservation Status:</span>
+                <div className="flex text-gray-500 items-center mb-1">
+                  <span className="font-medium text-gray-700 mr-2">Conservation Status:</span>
                   <span>{conservationStatus}</span>
                 </div>
                 {wikipediaUrl && (
@@ -137,14 +144,14 @@ const SpeciesCarousel = ({ speciesList }) => {
                     href={wikipediaUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="inline-block text-blue-400 hover:text-blue-300 hover:underline mt-1"
+                    className="inline-block text-blue-500 hover:text-blue-400 underline mt-1"
                   >
                     Wikipedia
                   </a>
                 )}
               </div>
               
-              <div className="text-gray-400 text-sm overflow-y-auto pr-4">
+              <div className="text-gray-500/75 text-sm overflow-y-auto pr-4">
                 <p>{wikipediaText.substring(0, 300)}{wikipediaText.length > 300 ? '...' : ''}</p>
               </div>
             </div>
@@ -152,25 +159,28 @@ const SpeciesCarousel = ({ speciesList }) => {
         </div>
         
         {/* Right side: Image */}
-        <div className="w-1/2 relative hidden md:block overflow-hidden">
-          <img 
-            src={imageUrl} 
-            alt={commonName}
-            className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = "https://via.placeholder.com/800?text=No+Image";
-            }}
-          />
+        <div className="w-1/2 relative rounded-xl hidden md:block overflow-hidden">
+          <div className="m-8 h-80">
+            <img 
+              src={imageUrl} 
+              alt={commonName}
+              className="w-full h-full p-4 rounded-xl drop-shadow-xl shadow-2xl object-cover transition-transform duration-1000 hover:scale-100"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "https://via.placeholder.com/800?text=No+Image";
+              }}
+            />
+          </div>
         </div>
       </div>
       
       {/* Navigation buttons and counter - moved outside the card */}
       {speciesList.length > 1 && (
-        <div className="mt-6 flex justify-between items-center px-4">
+        <div className="mt-6 flex justify-between items-center px-96">
           <button 
             onClick={goToPrev}
-            className="bg-slate-800 text-white rounded-full p-3 hover:bg-slate-700 transition-all transform hover:-translate-x-1 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg"
+            disabled={isAnimating}
+            className={`bg-slate-800 text-white rounded-full p-3 hover:bg-slate-700 transition-all transform hover:-translate-x-1 focus:outline-none focus:ring-2 focus:ring-gray-300 shadow-lg ${isAnimating ? 'opacity-50 cursor-not-allowed' : ''}`}
             aria-label="Previous species"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -178,13 +188,14 @@ const SpeciesCarousel = ({ speciesList }) => {
             </svg>
           </button>
           
-          <p className="text-gray-300 text-lg font-medium">
-            {currentIndex + 1} of {speciesList.length}
+          <p className="text-gray-800 text-xl font-medium">
+            {displayedIndex + 1} of {speciesList.length}
           </p>
           
           <button 
             onClick={goToNext}
-            className="bg-slate-800 text-white rounded-full p-3 hover:bg-slate-700 transition-all transform hover:translate-x-1 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg"
+            disabled={isAnimating}
+            className={`bg-slate-800 text-white rounded-full p-3 hover:bg-slate-700 transition-all transform hover:translate-x-1 focus:outline-none focus:ring-2 focus:ring-gray-300 shadow-lg ${isAnimating ? 'opacity-50 cursor-not-allowed' : ''}`}
             aria-label="Next species"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -193,11 +204,51 @@ const SpeciesCarousel = ({ speciesList }) => {
           </button>
         </div>
       )}
+
+      {/* Add the simplified CSS for animations */}
+      <style jsx>{`
+        .card-container {
+          transition: transform 1000ms ease, opacity 1000ms ease;
+        }
+        
+        .slide-out-left {
+          transform: translateX(-100%);
+          opacity: 0;
+        }
+        
+        .slide-out-right {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        
+        /* Add these to your global CSS or tailwind.config.js for global use */
+        @keyframes slideInFromRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideInFromLeft {
+          from {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
-// Updated ExplorePage component to use the carousel
+// The rest of ExplorePage component stays the same
 export default function ExplorePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [speciesList, setSpeciesList] = useState([]);
@@ -324,21 +375,21 @@ export default function ExplorePage() {
   return (
     <div className="w-full">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <form onSubmit={handleSearch} className="mb-10">
-          <div className="relative max-w-md mx-auto">
+        <form onSubmit={handleSearch} className="mb-10 ml-80">
+          <div className="absolute bottom-4 justify w-md mx-auto rounded-full">
             <input
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full p-4 pl-6 text-gray-300 rounded-lg bg-slate-900 focus:ring-1 focus:ring-blue-300 focus:outline-none"
-              placeholder="Enter a location to explore species..."
+              className="block w-full p-4 pl-6 text-gray-900 rounded-full bg-slate-200/50 ring-1 ring-gray-300 focus:outline-none"
+              placeholder="Search a location to explore species..."
               required
             />
             <button
               type="submit"
-              className="absolute right-2.5 bottom-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors"
+              className="absolute right-2.5 shadow-2xl bottom-2 bg-gray-900 hover:bg-gray-800 text-white rounded-full px-4 py-2 font-medium transition-colors"
             >
-              Search
+              Browse
             </button>
           </div>
         </form>
@@ -346,7 +397,7 @@ export default function ExplorePage() {
 
       {isLoading && (
         <div className="flex justify-center items-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+          <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-black-700"></div>
         </div>
       )}
 
@@ -355,7 +406,7 @@ export default function ExplorePage() {
           <p>{error}</p>
           <button 
             onClick={() => loadSampleData()}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors"
+            className="mt-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 font-medium transition-colors"
           >
             Load Sample Data
           </button>
@@ -374,15 +425,13 @@ export default function ExplorePage() {
 
       {/* Example card for demonstration */}
       {!isLoading && speciesList.length === 0 && !searchTerm && !error && (
-        <div className="max-w-6xl mx-auto px-4 mt-10">
-          <p className="text-center text-gray-400 mb-6">Search for a location to explore species</p>
-          <div className="bg-slate-900 p-6 rounded-lg text-center">
-            <p className="text-xl text-gray-300">Enter a location like "Amazon Rainforest", "Arctic", or "Madagascar" to discover species</p>
+        <div className="flex justify-center text-center px-4 mt-10">
+          <div className="absolute top-80 rounded-lg text-center">
             <button 
               onClick={() => loadSampleData()}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors"
+              className="mt-4 bg-gray-900 hover:bg-gray-800 text-white rounded-lg px-4 py-2 font-medium transition-colors"
             >
-              Or try sample data
+              Try sample data
             </button>
           </div>
         </div>
@@ -390,4 +439,3 @@ export default function ExplorePage() {
     </div>
   );
 }
-

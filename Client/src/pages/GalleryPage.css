@@ -1,95 +1,65 @@
-
-
-/* Gradient and bg*/
+/* GalleryPage.css */
 
 .gradient {
-    background: #324EB1;
-    background: linear-gradient(to right, #324EB1 0%, #39DF1E 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  
+  background: linear-gradient(90deg, #4776E6 0%, #54e957 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Bento grid animation */
+.bento-grid {
+  opacity: 1;
+  animation: fadeIn 0.5s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bento-item {
+  break-inside: avoid;
+  transition: transform 0.3s ease-in-out;
+}
+
+.bento-item:hover {
+  transform: scale(1.02);
+}
+
+/* For masonry-style layout */
+.bento-grid {
+  display: grid;
+  grid-template-rows: masonry;
+  grid-auto-rows: minmax(180px, auto);
+}
+
+/* Loader animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsiveness adjustments */
+@media (max-width: 640px) {
+  .bento-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
   }
-  
-  body {
-    font-family: Inter;
-    /* background-image: url('../assets/bg.svg'); */
-  }
-  
-  
-  /* CSS for gallerypage */
-  .gallery {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-  }
-  
-  .gallery-item {
-    position: relative;
-    overflow: hidden;
-    border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-  }
-  
-  .gallery-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.5s;
-  }
-  
-  .gallery-item:hover img {
-    transform: scale(1.05);
-  }
-  
-  .modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    backdrop-filter: blur(10px); /* Blurs the background */
-    z-index: 1000; /* Make sure the modal is above other content */
-  }
-  
-  .modal-image {
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain; /* Maintains aspect ratio */
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  }
-  
-  
-  /* download button */
-  
-  .download-button {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    /* background-color: #ffffff; */
-    /* color: white; */
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    font-size: 14px;
-  }
-  
-  .download-button:hover {
-    background-color: #a6a6a6;
-  }
-  
-  .download-button  {
-    display: none; /* Hide the icon by default */
-  }
-  .gallery-item:hover .download-button {
-    display: inline-block;
-    background-color: white; /* Show the icon only when hovering over the gallery item */
-  }
-  
+}
+
+/* Smooth image loading */
+.bento-item img {
+  transition: opacity 0.4s ease-in-out;
+}
+
+.bento-item img:not([loaded]) {
+  opacity: 1;
+}
+
+.bento-item img[loaded] {
+  opacity: 1;
+}

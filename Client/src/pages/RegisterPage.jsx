@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./RegisterPage.css";
 import { Typography, Input, Button } from "@material-tailwind/react";
 import { EyeSlashIcon, EyeIcon } from "@heroicons/react/24/solid";
+import GoogleAuth from "@components/GoogleAuth"
 
 export function RegisterPage() {
   const [passwordShown, setPasswordShown] = useState(false);
@@ -126,10 +127,8 @@ export function RegisterPage() {
           >
             sign up
           </Button>
-          <Button
-            variant="outlined"
-            size="lg"
-            className="mt-3 flex h-12 items-center justify-center gap-2 text-gray-800"
+          <div
+             className="mt-3 flex h-12 items-center border-1 rounded-xl font-semibold justify-center gap-2 text-gray-800"
             fullWidth
           >
             <img
@@ -137,8 +136,8 @@ export function RegisterPage() {
               alt="google"
               className="h-6 w-6"
             />{" "}
-            sign up with google
-          </Button>
+            <GoogleAuth />
+          </div>
           
         </form>
       </div>

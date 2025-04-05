@@ -11,7 +11,7 @@ import ExplorePage from "@pages/ExplorePage.jsx";
 import GalleryPage from "@pages/GalleryPage.jsx";
 import LearnMorePage from "@pages/LearnMorePage.jsx";
 import ErrorPage from "@pages/ErrorPage.jsx";
-import WriteBlogPage from "./pages/WriteBlogPage";
+import WriteBlogPage from "@pages/WriteBlogPage";
 
 
 //? CODE
