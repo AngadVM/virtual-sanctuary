@@ -5,7 +5,6 @@ import re
 from functools import lru_cache
 from geopy.geocoders import Nominatim
 from math import cos, radians
-import time
 
 # Increased cache size for geocoding
 @lru_cache(maxsize=256)
@@ -89,47 +88,22 @@ async def fetch_inaturalist(session, species):
     inaturalist_cache[species] = result
     return result
 
-async def fetch_audio(session, species):
-    """Fetch audio recordings from Xeno-canto API for the given species"""
-    xeno_canto_url = f"https://www.xeno-canto.org/api/2/recordings?query={species}"
-    audio_list = []
-    try:
-        async with session.get(xeno_canto_url, timeout=10) as xc_response:
-            if xc_response.status == 200:
-                xc_data = await xc_response.json()
-                recordings = xc_data.get('recordings', [])
-                for recording in recordings[:2]:  # Limit to 2 recordings
-                    audio_data = {
-                        'source': 'Xeno-canto',
-                        'id': recording.get('id'),
-                        'url': recording.get('file'),
-                        'recordist': recording.get('rec'),
-                        'country': recording.get('cnt'),
-                        'quality': recording.get('q')
-                    }
-                    audio_list.append(audio_data)
-    except Exception as e:
-        print(f"Error fetching Xeno-canto data: {e}")
-    return audio_list
 
 async def fetch_species_data(session, species):
     """Fetch all data for a species in parallel"""
     tasks = [
         fetch_wikipedia(session, species),
         fetch_inaturalist(session, species),
-        fetch_audio(session, species)
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     # Handle any exceptions in the results
     wikipedia_summary = results[0] if not isinstance(results[0], Exception) else "Error fetching Wikipedia data"
     inaturalist_data = results[1] if not isinstance(results[1], Exception) else "Error fetching iNaturalist data"
-    audio_data = results[2] if not isinstance(results[2], Exception) else []
 
     return {
         "wikipedia": wikipedia_summary,
         "inaturalist": inaturalist_data,
-        "audio": audio_data
     }
 
 async def fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n=8):
@@ -144,7 +118,6 @@ async def fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n=8):
         'mediaType': 'StillImage'
     }
 
-    start_time = time.time()
     async with aiohttp.ClientSession() as session:
         # Use a semaphore to limit concurrent API calls
         semaphore = asyncio.Semaphore(10)
@@ -190,7 +163,6 @@ async def fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n=8):
                 if len(species_data) == n:
                     break
         
-        print(f"GBIF processing time: {time.time() - start_time:.2f} seconds")
         print(f"Starting to fetch additional data for {len(tasks)} species")
         
         if tasks:
@@ -202,12 +174,10 @@ async def fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n=8):
                 else:
                     species_data[species_name].update(data)
 
-        print(f"Total GBIF processing time: {time.time() - start_time:.2f} seconds")
         return species_data
 
 async def API_Response(address: str, n: int = 8) -> dict:
     """Main API function to get species data based on an address"""
-    start_time = time.time()
     
     # Get geographic coordinates
     geo_data = geocode(address)
@@ -219,7 +189,6 @@ async def API_Response(address: str, n: int = 8) -> dict:
     # Fetch species data
     species_data = await fetch_gbif_data(min_lat, max_lat, min_lon, max_lon, n)
     
-    print(f"Total API_Response time: {time.time() - start_time:.2f} seconds")
     
     return {
         "species_data": species_data,
@@ -240,15 +209,7 @@ def main():
             print(f"Wikipedia summary: {data['wikipedia']}")
             print(f"iNaturalist data: {data['inaturalist']}")
             print(f"Images: {data['images']}")
-            print(f"Audio recordings:")
-            for audio in data['audio']:
-                print(f"  - Source: {audio['source']}")
-                print(f"    ID: {audio['id']}")
-                print(f"    URL: {audio['url']}")
-                print(f"    Recordist: {audio['recordist']}")
-                if audio['source'] == 'Xeno-canto':
-                    print(f"    Country: {audio['country']}")
-                    print(f"    Quality: {audio['quality']}")
+            
 
 if __name__ == "__main__":
     main()
