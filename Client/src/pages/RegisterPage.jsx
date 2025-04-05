@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./RegisterPage.css";
 import { Typography, Input, Button } from "@material-tailwind/react";
 import { EyeSlashIcon, EyeIcon } from "@heroicons/react/24/solid";
+import GoogleAuth from "@components/GoogleAuth"
 
 export function RegisterPage() {
   const [passwordShown, setPasswordShown] = useState(false);
@@ -21,7 +22,7 @@ export function RegisterPage() {
             <label htmlFor="email">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Username
               </Typography>
@@ -44,7 +45,7 @@ export function RegisterPage() {
             <label htmlFor="email">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Email
               </Typography>
@@ -66,7 +67,7 @@ export function RegisterPage() {
             <label htmlFor="password">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Password
               </Typography>
@@ -94,7 +95,7 @@ export function RegisterPage() {
             <label htmlFor="password">
               <Typography
                 variant="small"
-                className="mb-2 block font-medium text-gray-300"
+                className="mb-2 block font-medium text-gray-800"
               >
                 Confirm Password
               </Typography>
@@ -121,15 +122,13 @@ export function RegisterPage() {
           <Button
             color="white"
             size="lg"
-            className="mt-6 text-black bg-gray-200"
+            className="mt-6 text-white bg-gray-900"
             fullWidth
           >
             sign up
           </Button>
-          <Button
-            variant="outlined"
-            size="lg"
-            className="mt-3 flex h-12 items-center justify-center gap-2 text-gray-300"
+          <div
+             className="mt-3 flex h-12 items-center border-1 rounded-xl font-semibold justify-center gap-2 text-gray-800"
             fullWidth
           >
             <img
@@ -137,8 +136,8 @@ export function RegisterPage() {
               alt="google"
               className="h-6 w-6"
             />{" "}
-            sign up with google
-          </Button>
+            <GoogleAuth />
+          </div>
           
         </form>
       </div>
