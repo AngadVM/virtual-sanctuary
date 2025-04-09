@@ -11,7 +11,7 @@ import ExplorePage from "@pages/ExplorePage.jsx";
 import GalleryPage from "@pages/GalleryPage.jsx";
 import LearnMorePage from "@pages/LearnMorePage.jsx";
 import ErrorPage from "@pages/ErrorPage.jsx";
-import WriteBlogPage from "@pages/WriteBlogPage";
+import WriteBlogPageAlt from "@pages/WriteBlogPageAlt";
 
 
 //? CODE
@@ -22,7 +22,7 @@ const App = () => {
         <Route path="/" element={<AltMainPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/write" element={<WriteBlogPage />} />
+        <Route path="/write" element={<WriteBlogPageAlt />} />
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/gallery" element={<GalleryPage />} />
         <Route path="/learn-more" element={<LearnMorePage />} />
