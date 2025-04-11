@@ -1,4 +1,4 @@
-
+/* 
 .parent {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -54,4 +54,4 @@
     height: 100px;
     background: black;
     margin: 0 10px;
-  }
+  } */

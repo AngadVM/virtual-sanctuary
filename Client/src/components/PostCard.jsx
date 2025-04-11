@@ -1,50 +1,100 @@
-import React from "react";
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  Typography,
-  Button,
-} from "@material-tailwind/react";
+import React, { useState } from 'react';
 
-export default function PostCard() {
+function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, timestamp, darkMode }) {
+  const [likes, setLikes] = useState(likeCount);
+  const [shares, setShares] = useState(shareCount);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isShared, setIsShared] = useState(false);
+  
+  const handleLike = () => {
+    if (isLiked) {
+      setLikes(prev => prev - 1);
+      setIsLiked(false);
+    } else {
+      setLikes(prev => prev + 1);
+      setIsLiked(true);
+    }
+  };
+  
+  const handleShare = () => {
+    if (!isShared) {
+      setShares(prev => prev + 1);
+      setIsShared(true);
+      // In a real app, you might open a share dialog here
+    }
+  };
+
   return (
-    <Card className="w-full flex-row">
-
-      <CardBody>
-        <Typography variant="h6" color="gray" className="mb-4">
-          @author
-        </Typography>
-        <Typography variant="h4" color="blue-gray" className="mb-2">
-          title of the post
-        </Typography>
-        <Typography color="gray" className="mb-8 font-normal">
-          Like so many organizations these days, Autodesk is a company in
-          transition. It was until recently a traditional boxed software company
-          selling licenses. Yet its own business model disruption is only part
-          of the story
-        </Typography>
-        <div className="stats flex justify-start mx-3">
-          <button className="py-1 px-3">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Zm0-108q96-86 158-147.5t98-107q36-45.5 50-81t14-70.5q0-60-40-100t-100-40q-47 0-87 26.5T518-680h-76q-15-41-55-67.5T300-774q-60 0-100 40t-40 100q0 35 14 70.5t50 81q36 45.5 98 107T480-228Zm0-273Z" /></svg>like</button>
-          <button className="py-1 px-3">comment</button>
-          <button className="py-1 px-3">share</button>
-          <button className="py-1 px-3 underline">LOAD MORE </button>
+    <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow`}>
+      <div className="p-4 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <div className={`w-10 h-10 rounded-full ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-300 text-gray-600'} flex items-center justify-center font-bold`}>
+              {author.charAt(1).toUpperCase()}
+            </div>
+            <div className="ml-3">
+              <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>{author}</span>
+              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{timestamp}</div>
+            </div>
+          </div>
+          <button className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+            </svg>
+          </button>
         </div>
-
-
-      </CardBody>
-      <CardHeader
-        shadow={false}
-        floated={false}
-        className="m-0 w-2/5 shrink-0 rounded-r-none"
-      >
-        <img
-          src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1471&q=80"
-          alt="card-image"
-          className="h-fit w-fit object-cover"
-        />
-      </CardHeader>
-    </Card>
+        
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <h3 className={`text-xl md:text-2xl font-bold mb-3 ${darkMode ? 'text-white' : ''}`}>{title}</h3>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-4`}>{postText}</p>
+          </div>
+          
+          {imageUrl && (
+            <div className="md:w-1/3 lg:w-1/4">
+              <div className="rounded-lg overflow-hidden h-full">
+                <img 
+                  src={imageUrl} 
+                  alt={title} 
+                  className="w-full h-48 md:h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className={`flex items-center justify-between pt-4 mt-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+          <div className="flex space-x-4">
+            <button 
+              onClick={handleLike}
+              className={`flex items-center space-x-1 ${isLiked ? 'text-blue-600' : darkMode ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-600`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={isLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isLiked ? "0" : "2"}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span>{likes}</span>
+            </button>
+            
+            <button 
+              onClick={handleShare}
+              className={`flex items-center space-x-1 ${isShared ? 'text-green-600' : darkMode ? 'text-gray-400' : 'text-gray-500'} hover:text-green-600`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>{shares}</span>
+            </button>
+          </div>
+          
+          <button className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
+
+export default PostCard;
