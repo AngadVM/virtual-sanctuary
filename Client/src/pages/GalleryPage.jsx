@@ -9,20 +9,25 @@ function GalleryPage() {
   const apiKey = import.meta.env.VITE_PEXELS_KEY;
   const getPictures = async () => {
     setLoading(true);
-    await fetch(`https://api.pexels.com/v1/search?query=${query}`, {
+    const searchQuery = `${query} animal`; // Ensures animal-specific results
+  
+    await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&orientation=landscape&per_page=50`, {
       headers: {
         Authorization: apiKey,
       },
     })
-      .then((resp) => {
-        return resp.json();
-      })
+      .then((resp) => resp.json())
       .then((res) => {
+        // Optional basic client-side filter
+        const filtered = res.photos.filter(photo => 
+          photo.alt.toLowerCase().includes("animal") ||
+          photo.alt.toLowerCase().includes(query.toLowerCase())
+        );
+        setData(filtered);
         setLoading(false);
-        setData(res.photos);
       });
   };
-
+  
   useEffect(() => {
     getPictures();
   }, []);
@@ -46,7 +51,7 @@ function GalleryPage() {
             <input
               className="w-80 h-10 py-1 px-3 focus:outline-none text-gray-700"
               onKeyDown={onKeyDownHandler}
-              placeholder="Search for Anything..."
+              placeholder="Browse through our wild gallery..."
               onChange={handleQueryChange}
               value={query}
             />

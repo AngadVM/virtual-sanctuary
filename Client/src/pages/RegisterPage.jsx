@@ -122,21 +122,19 @@ export function RegisterPage() {
           <Button
             color="white"
             size="lg"
-            className="mt-6 text-white bg-gray-900"
-            fullWidth
+            className="mt-6 text-white bg-gray-900 w-full"
           >
             sign up
           </Button>
           <div
              className="mt-3 flex h-12 items-center border-1 rounded-xl font-semibold justify-center gap-2 text-gray-800"
-            fullWidth
           >
             <img
               src={`https://www.material-tailwind.com/logos/logo-google.png`}
               alt="google"
               className="h-6 w-6"
             />{" "}
-            <GoogleAuth />
+            <GoogleAuth/>
           </div>
           
         </form>
