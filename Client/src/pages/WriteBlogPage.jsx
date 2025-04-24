@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import PostCard from '@components/PostCard';
 import ClerkAuth from '@components/ClerkAuth';
+import { useUser } from '@clerk/clerk-react';
 
 function WriteBlogPage() {
+  const { isSignedIn, user } = useUser();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [newPost, setNewPost] = useState({
@@ -15,11 +17,11 @@ function WriteBlogPage() {
     {
       id: 1,
       author: "@wildclicker",
-      title: "Ocean Predators with Ancient Lineage",
-      postText: "Sharks are found in oceans worldwide, from coastal shallows to deep seas. Known for their sharp senses and powerful jaws, they play a vital role in maintaining marine ecosystem balance as apex predators.",
+      title: "Shy Climbers of the Eastern Himalayas",
+      postText: "Red pandas are native to the Eastern Himalayas and southwestern China. They live in temperate forests and are mostly active at dusk and dawn. With a diet mainly of bamboo, they are excellent climbers and solitary by nature. Sadly, they’re endangered due to habitat loss.",
       likeCount: 42,
       shareCount: 12,
-      imageUrl: "https://images.pexels.com/photos/726478/pexels-photo-726478.jpeg?auto=compress&cs=tinysrgb&w=600",
+      imageUrl: "https://images.pexels.com/photos/1210229/pexels-photo-1210229.jpeg",
       timestamp: "2 hours ago"
     },
     {
@@ -55,7 +57,7 @@ function WriteBlogPage() {
     {
       id: 5,
       author: "@lovewildlife",
-      title: "India’s Fierce Forest Guardian",
+      title: "India's Fierce Forest Guardian",
       postText: "Found in India, Bangladesh, and Nepal, Bengal tigers roam dense forests and mangroves. As solitary hunters, they are powerful and stealthy predators. These majestic cats are endangered due to poaching and habitat loss.",
       likeCount: 76,
       shareCount: 29,
@@ -136,16 +138,25 @@ function WriteBlogPage() {
   const handleSubmitNewPost = (e) => {
     e.preventDefault();
     
+    // Get the user's username or create a default one
+    let authorUsername = "@guest";
+    
+    // Update the author with the logged in user's username if available
+    if (isSignedIn && user) {
+      // Try to get the username, or use their first part of email as a fallback
+      const username = user.username || user.primaryEmailAddress?.emailAddress.split('@')[0];
+      authorUsername = username ? `@${username}` : `@user${user.id.substring(0, 6)}`;
+    }
+    
     // Create new post with current date/time and default values
-    const currentDate = new Date();
     const newPostItem = {
       id: posts.length + 1,
-      author: "@currentuser", // In a real app, get this from auth context
+      author: authorUsername,
       title: newPost.title,
       postText: newPost.postText,
       likeCount: 0,
       shareCount: 0,
-      imageUrl: newPost.imageUrl,
+      imageUrl: newPost.imageUrl || 'https://images.pexels.com/photos/814898/pexels-photo-814898.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
       timestamp: "Just now"
     };
     
@@ -156,7 +167,7 @@ function WriteBlogPage() {
     setNewPost({
       title: '',
       postText: '',
-      imageUrl: 'https://images.pexels.com/photos/814898/pexels-photo-814898.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+      imageUrl: ''
     });
     setIsDialogOpen(false);
   };
@@ -204,6 +215,11 @@ function WriteBlogPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg p-6 w-full max-w-md mx-4`}>
               <h2 className="text-2xl font-bold mb-4">Create New Post</h2>
+              {!isSignedIn && (
+                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-md">
+                  You're not signed in. Your post will be published as a guest.
+                </div>
+              )}
               <form onSubmit={handleSubmitNewPost}>
                 <div className="mb-4">
                   <label htmlFor="title" className={`block ${darkMode ? 'text-gray-200' : 'text-gray-700'} font-medium mb-2`}>Title</label>
