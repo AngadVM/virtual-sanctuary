@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 
-function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, timestamp, darkMode }) {
+function PostCard({ 
+  author, 
+  title, 
+  postText, 
+  likeCount, 
+  shareCount, 
+  imageUrl, 
+  timestamp, 
+  darkMode,
+  onCardClick 
+}) {
   const [likes, setLikes] = useState(likeCount);
   const [shares, setShares] = useState(shareCount);
   const [isLiked, setIsLiked] = useState(false);
   const [isShared, setIsShared] = useState(false);
   
-  const handleLike = () => {
+  const handleLike = (e) => {
+    e.stopPropagation(); // Prevent card click event
     if (isLiked) {
       setLikes(prev => prev - 1);
       setIsLiked(false);
@@ -16,7 +27,8 @@ function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, ti
     }
   };
   
-  const handleShare = () => {
+  const handleShare = (e) => {
+    e.stopPropagation(); // Prevent card click event
     if (!isShared) {
       setShares(prev => prev + 1);
       setIsShared(true);
@@ -24,8 +36,25 @@ function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, ti
     }
   };
 
+  const handleCardClick = () => {
+    if (onCardClick) {
+      onCardClick({
+        author,
+        title,
+        postText,
+        likes,
+        shares,
+        imageUrl,
+        timestamp
+      });
+    }
+  };
+
   return (
-    <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow`}>
+    <div 
+      className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer`}
+      onClick={handleCardClick}
+    >
       <div className="p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
@@ -37,7 +66,7 @@ function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, ti
               <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{timestamp}</div>
             </div>
           </div>
-          <button className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>
+          <button className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`} onClick={(e) => e.stopPropagation()}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
             </svg>
@@ -47,7 +76,7 @@ function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, ti
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <h3 className={`text-xl md:text-2xl font-bold mb-3 ${darkMode ? 'text-white' : ''}`}>{title}</h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-4`}>{postText}</p>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-4 line-clamp-3`}>{postText}</p>
           </div>
           
           {imageUrl && (
@@ -86,7 +115,10 @@ function PostCard({ author, title, postText, likeCount, shareCount, imageUrl, ti
             </button>
           </div>
           
-          <button className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>
+          <button 
+            className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>

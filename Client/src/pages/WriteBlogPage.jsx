@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import PostCard from '@components/PostCard';
 import ClerkAuth from '@components/ClerkAuth';
 import { useUser } from '@clerk/clerk-react';
+import PostDetailsModal from './PostDetailsModal'; // Import the new modal component
 
 function WriteBlogPage() {
   const { isSignedIn, user } = useUser();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [selectedPost, setSelectedPost] = useState(null);
   const [newPost, setNewPost] = useState({
     title: '',
     postText: '',
@@ -18,7 +20,7 @@ function WriteBlogPage() {
       id: 1,
       author: "@wildclicker",
       title: "Shy Climbers of the Eastern Himalayas",
-      postText: "Red pandas are native to the Eastern Himalayas and southwestern China. They live in temperate forests and are mostly active at dusk and dawn. With a diet mainly of bamboo, they are excellent climbers and solitary by nature. Sadly, they’re endangered due to habitat loss.",
+      postText: "Red pandas are native to the Eastern Himalayas and southwestern China. They live in temperate forests and are mostly active at dusk and dawn. With a diet mainly of bamboo, they are excellent climbers and solitary by nature. Sadly, they're endangered due to habitat loss.",
       likeCount: 42,
       shareCount: 12,
       imageUrl: "https://images.pexels.com/photos/1210229/pexels-photo-1210229.jpeg",
@@ -123,6 +125,19 @@ function WriteBlogPage() {
     }
   }, [darkMode]);
 
+  // Prevent scrolling when modal is open
+  useEffect(() => {
+    if (selectedPost) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedPost]);
+
   const toggleDarkMode = () => {
     setDarkMode(prevMode => !prevMode);
   };
@@ -172,6 +187,21 @@ function WriteBlogPage() {
     setIsDialogOpen(false);
   };
 
+  // Handle post card click
+  const handlePostCardClick = (post) => {
+    setSelectedPost(post);
+  };
+
+  // Handle recommendation click
+  const handleRecommendationClick = (recommendation) => {
+    setSelectedPost(recommendation);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setSelectedPost(null);
+  };
+
   return (
     <div className={`${darkMode ? 'dark bg-gray-900 text-white' : 'bg-white text-gray-900'} min-h-screen transition-colors duration-300`}>
       <div className="container mx-auto px-4 py-6">
@@ -201,7 +231,7 @@ function WriteBlogPage() {
           </div>
           <div className="flex gap-8">
             <button 
-              className="bg-green-400 font-medium ring-1 ring-green-500 text-white px-3 py-2 rounded-full hover:bg-green-500 transition-colors hover:cursor-pointer"
+              className="bg-green-500 font-medium ring-1 ring-green-600 text-white px-3 py-1.5 rounded-full hover:bg-green-500 transition-colors hover:cursor-pointer"
               onClick={() => setIsDialogOpen(true)}
             >
             &#x2b;  New Post
@@ -304,6 +334,7 @@ function WriteBlogPage() {
                   imageUrl={post.imageUrl}
                   timestamp={post.timestamp}
                   darkMode={darkMode}
+                  onCardClick={() => handlePostCardClick(post)}
                 />
               ))}
             </div>
@@ -314,7 +345,11 @@ function WriteBlogPage() {
               <h3 className="text-xl font-semibold mb-4">Recommended</h3>
               <div className="space-y-4">
                 {recommendations.map(rec => (
-                  <div key={rec.id} className={`${darkMode ? 'bg-gray-700' : 'bg-white'} rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow`}>
+                  <div 
+                    key={rec.id} 
+                    className={`${darkMode ? 'bg-gray-700' : 'bg-white'} rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
+                    onClick={() => handleRecommendationClick(rec)}
+                  >
                     <img src={rec.imageUrl} alt={rec.title} className="w-full h-32 object-cover" />
                     <div className="p-3">
                       <h4 className="font-medium text-lg">{rec.title}</h4>
@@ -343,6 +378,15 @@ function WriteBlogPage() {
           </div>
         </div>
       </div>
+
+      {/* Post Details Modal */}
+      {selectedPost && (
+        <PostDetailsModal 
+          post={selectedPost} 
+          darkMode={darkMode} 
+          onClose={closeModal} 
+        />
+      )}
     </div>
   );
 }
