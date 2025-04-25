@@ -29,6 +29,7 @@ flask-session = "*"
 flask-login = "*"
 bs4 = "*"
 geopy = "*"
+streamlit = "*"
 
 [dev-packages]
 
