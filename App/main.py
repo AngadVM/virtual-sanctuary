@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
 import concurrent.futures
@@ -9,7 +9,8 @@ from Modules.news import get_news_rss
 from Modules.animals import API_Response
 from Modules.animal_viz import create_visualization
 
-app = Flask(__name__)
+# Change the static_folder to point to the correct directory
+app = Flask(__name__, static_folder='../visualizations')
 CORS(app)
 
 # Thread pool for CPU-bound tasks
@@ -57,7 +58,6 @@ def explore():
         for species_name, data in result["species_data"].items():
             try:
                 
-
                 # Fetch news articles
                 news_articles = get_news_rss(species_name)
                 data['news'] = news_articles
@@ -78,33 +78,40 @@ def explore():
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
-@app.route("/visualize", methods=["POST"])
-def visualize():
-    """Handles species visualization requests."""
-    if request.method == "POST":
-        animal_name = request.json.get('animal')
+@app.route('/visualize', methods=['POST'])
+def visualize_animal():
+    try:
+        data = request.json
+        animal_name = data.get('animal')
         
         if not animal_name:
-            return jsonify({"error": "Animal name not provided"}), 400
+            return jsonify({'success': False, 'error': 'Animal name is required'})
+            
+        # Call the create_visualization function from animal_viz.py
+        # Now it returns just the filename, not the full path
+        filename = create_visualization(animal_name)
         
-        try:
-            file_path = create_visualization(animal_name)
+        if not filename:
+            return jsonify({'success': False, 'error': 'Failed to create visualization'})
             
-            if not file_path:
-                return jsonify({"error": "No data found for the specified animal"}), 404
-            
-            return jsonify({
-                "success": True,
-                "file_path": file_path,
-                "message": "Visualization created successfully"
-            })
+        # Return the full URL that the frontend can access
+        # This includes the protocol, hostname, and port
+        file_url = f"http://localhost:5000/visualizations/{filename}"
+        
+        return jsonify({
+            'success': True, 
+            'file_path': file_url,
+            'filename': filename
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-        except Exception as e:
-            error_msg = {'error': f'An error occurred: {str(e)}'}
-            print("Visualization Error:", error_msg)
-            return jsonify(error_msg), 500
-
-
+@app.route('/visualizations/<path:filename>')
+def serve_visualization(filename):
+    # Serve files from the visualizations directory
+    print(f"Serving visualization file: {filename}")
+    return send_from_directory('../visualizations', filename)
 
 @app.route("/api/health")
 def health_check():

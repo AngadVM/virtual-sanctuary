@@ -2,35 +2,50 @@ import { useState, useRef, useEffect } from "react";
 
 // Visualization Popup Component
 const VisualizationPopup = ({ animalName, onClose }) => {
-  const [htmlContent, setHtmlContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [iframeUrl, setIframeUrl] = useState("");
 
   useEffect(() => {
     const loadVisualization = async () => {
       try {
-        // Fetch the latest visualization file for this animal
-        const response = await fetch(`http://localhost:5000/visualize`, {
+        setIsLoading(true);
+        setError(null);
+        
+        console.log("Requesting visualization for:", animalName);
+        
+        const response = await fetch("http://localhost:5000/visualize", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ animal: animalName }),
         });
-
+    
+        console.log("Response status:", response.status);
+        
         if (!response.ok) {
-          throw new Error("Failed to load visualization");
+          throw new Error(`Server error: ${response.status}`);
         }
-
+    
         const data = await response.json();
-        if (data.success && data.file_path) {
-          const vizResponse = await fetch(`/${data.file_path}`);
-          const content = await vizResponse.text();
-          setHtmlContent(content);
+        console.log("Response data:", data);
+        
+        if (!data.success) {
+          throw new Error(data.error || "Failed to generate visualization");
         }
+        
+        if (data.file_path) {
+          console.log("Using visualization URL:", data.file_path);
+          setIframeUrl(data.file_path);
+          setIsLoading(false);
+        } else {
+          throw new Error("No visualization file path returned from server");
+        }
+        
       } catch (error) {
         console.error("Error loading visualization:", error);
-        setHtmlContent(`<div class="error">Failed to load visualization for ${animalName}</div>`);
-      } finally {
+        setError(`${error.message}`);
         setIsLoading(false);
       }
     };
@@ -55,8 +70,28 @@ const VisualizationPopup = ({ animalName, onClose }) => {
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-gray-800"></div>
           </div>
+        ) : error ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="text-red-500 text-center p-8">
+              <h3 className="text-xl font-bold mb-2">Error Loading Visualization</h3>
+              <p>{error}</p>
+              <div className="mt-4 text-gray-700 text-sm">
+                <p>Make sure your backend is properly configured to:</p>
+                <ol className="list-decimal list-inside mt-2">
+                  <li>Generate the visualization file</li>
+                  <li>Return the correct file path</li>
+                  <li>Serve the file from the visualizations directory</li>
+                </ol>
+              </div>
+            </div>
+          </div>
         ) : (
-          <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+          <iframe 
+            src={iframeUrl}
+            className="w-full h-full border-0"
+            title={`${animalName} Distribution Visualization`}
+            sandbox="allow-scripts"
+          />
         )}
       </div>
     </div>
@@ -255,7 +290,7 @@ export default function ExplorePage() {
   const [error, setError] = useState(null);
   const [showVisualization, setShowVisualization] = useState(false);
   const [currentAnimal, setCurrentAnimal] = useState("");
-  const [hasSearched, setHasSearched] = useState(false); // Add this new state
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async (event) => {
     event.preventDefault();
@@ -294,7 +329,8 @@ export default function ExplorePage() {
     }
   };
 
-  const handleVisualize = (animalName) => {
+  const handleVisualize = async (animalName) => {
+    // Set the current animal and show visualization modal
     setCurrentAnimal(animalName);
     setShowVisualization(true);
   };

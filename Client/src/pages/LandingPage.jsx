@@ -90,7 +90,7 @@ const AltMainPage = () => {
               creatures.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
-              <a href="/register" className="rounded-full px-3.5 py-2 text-md bg-white/10 font-medium  text-white shadow-xs hover:bg-white hover:text-black transition duration-500 ease-in-out outline-1 focus-visible:outline-offset-2 focus-visible:outline-gray-600">
+              <a href="/explore" className="rounded-full px-3.5 py-2 text-md bg-white/10 font-medium  text-white shadow-xs hover:bg-white hover:text-black transition duration-500 ease-in-out outline-1 focus-visible:outline-offset-2 focus-visible:outline-gray-600">
                 Get started  <span aria-hidden="true">&rarr;</span>
               </a>
               {/* <a
