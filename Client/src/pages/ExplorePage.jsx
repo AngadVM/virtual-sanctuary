@@ -36,8 +36,12 @@ const VisualizationPopup = ({ animalName, onClose }) => {
         }
         
         if (data.file_path) {
-          console.log("Using visualization URL:", data.file_path);
-          setIframeUrl(data.file_path);
+          // Extract just the filename from the file_path
+          const filename = data.file_path.split('/').pop();
+          // Construct the URL to fetch the visualization HTML file
+          const visualizationUrl = `http://localhost:5000/visualizations/${filename}`;
+          console.log("Using visualization URL:", visualizationUrl);
+          setIframeUrl(visualizationUrl);
           setIsLoading(false);
         } else {
           throw new Error("No visualization file path returned from server");

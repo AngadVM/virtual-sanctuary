@@ -98,7 +98,7 @@ def create_visualization(animal_name):
     
     # Create output directory if it doesn't exist
     # Make sure the visualizations directory is in the root folder
-    visualization_dir = '../visualizations'
+    visualization_dir = 'visualizations'
     if not os.path.exists(visualization_dir):
         os.makedirs(visualization_dir)
 
@@ -297,7 +297,7 @@ def main():
                 print(f"File saved as: visualizations/{file_path}")
                 
                 # Open the visualization in the default web browser
-                absolute_path = os.path.abspath(os.path.join('../visualizations', file_path))
+                absolute_path = os.path.abspath(os.path.join('visualizations', file_path))
                 webbrowser.open('file://' + absolute_path)
                 print("Opening visualization in your web browser...\n")
             
