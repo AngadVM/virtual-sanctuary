@@ -91,18 +91,22 @@ def create_visualization(animal_name):
     data = get_animal_data(animal_name)
     if not data:
         print(f"No valid data found for {animal_name}")
-        return
+        return None
 
     # Convert to DataFrame
     df = pd.DataFrame(data)
     
     # Create output directory if it doesn't exist
-    if not os.path.exists('visualizations'):
-        os.makedirs('visualizations')
+    # Make sure the visualizations directory is in the root folder
+    visualization_dir = 'visualizations'
+    if not os.path.exists(visualization_dir):
+        os.makedirs(visualization_dir)
 
     # Create HTML file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"visualizations/{animal_name.replace(' ', '_')}_{timestamp}.html"
+    safe_animal_name = animal_name.replace(' ', '_')
+    filename = f"{safe_animal_name}_{timestamp}.html"
+    filepath = os.path.join(visualization_dir, filename)
     
     # Create the HTML content
     html_content = f"""
@@ -154,9 +158,13 @@ def create_visualization(animal_name):
     """
 
     # Save the HTML file
-    with open(filename, 'w') as f:
+    with open(filepath, 'w') as f:
         f.write(html_content)
 
+    print(f"Visualization file created at: {filepath}")
+    
+    # Return just the filename (not the full path)
+    # This makes it easier to serve via Flask's static file handler
     return filename
 
 def create_map(df):
@@ -286,14 +294,15 @@ def main():
             
             if file_path:
                 print(f"\nVisualization created successfully!")
-                print(f"File saved as: {file_path}")
+                print(f"File saved as: visualizations/{file_path}")
                 
                 # Open the visualization in the default web browser
-                webbrowser.open('file://' + os.path.abspath(file_path))
+                absolute_path = os.path.abspath(os.path.join('visualizations', file_path))
+                webbrowser.open('file://' + absolute_path)
                 print("Opening visualization in your web browser...\n")
             
         except Exception as e:
             print(f"\nAn error occurred: {str(e)}\n")
 
 if __name__ == "__main__":
-    main() 
+    main()
